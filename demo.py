@@ -114,7 +114,8 @@ def get_3D_model_from_scene(outdir, scene, min_conf_thr=3, as_pointcloud=False, 
 
 
 def get_reconstructed_scene(outdir, model, device, image_size, filelist, schedule, niter, min_conf_thr,
-                            as_pointcloud, mask_sky, clean_depth, transparent_cams, cam_size):
+                            as_pointcloud, mask_sky, clean_depth, transparent_cams, cam_size,
+                            scenegraph_type, winsize, refid):
     """
     from a list of images, run dust3r inference, global aligner.
     then run get_3D_model_from_scene
@@ -123,7 +124,12 @@ def get_reconstructed_scene(outdir, model, device, image_size, filelist, schedul
     if len(imgs) == 1:
         imgs = [imgs[0], copy.deepcopy(imgs[0])]
         imgs[1]['idx'] = 1
-    pairs = make_pairs(imgs, scene_graph='complete', prefilter=None, symmetrize=True)
+    if scenegraph_type == "swin":
+        scenegraph_type = scenegraph_type + "-" + str(winsize)
+    elif scenegraph_type == "oneref":
+        scenegraph_type = scenegraph_type + "-" + str(refid)
+
+    pairs = make_pairs(imgs, scene_graph=scenegraph_type, prefilter=None, symmetrize=True)
     output = inference(pairs, model, device, batch_size=batch_size)
 
     mode = GlobalAlignerMode.PointCloudOptimizer if len(imgs) > 2 else GlobalAlignerMode.PairViewer
@@ -157,6 +163,27 @@ def get_reconstructed_scene(outdir, model, device, image_size, filelist, schedul
     return scene, outfile, imgs
 
 
+def set_scenegraph_options(inputfiles, winsize, refid, scenegraph_type):
+    num_files = len(inputfiles) if inputfiles is not None else 1
+    max_winsize = max(1, (num_files - 1)//2)
+    if scenegraph_type == "swin":
+        winsize = gradio.Slider(label="Scene Graph: Window Size", value=max_winsize,
+                                minimum=1, maximum=max_winsize, step=1, visible=True)
+        refid = gradio.Slider(label="Scene Graph: Id", value=0, minimum=0,
+                              maximum=num_files-1, step=1, visible=False)
+    elif scenegraph_type == "oneref":
+        winsize = gradio.Slider(label="Scene Graph: Window Size", value=max_winsize,
+                                minimum=1, maximum=max_winsize, step=1, visible=False)
+        refid = gradio.Slider(label="Scene Graph: Id", value=0, minimum=0,
+                              maximum=num_files-1, step=1, visible=True)
+    else:
+        winsize = gradio.Slider(label="Scene Graph: Window Size", value=max_winsize,
+                                minimum=1, maximum=max_winsize, step=1, visible=False)
+        refid = gradio.Slider(label="Scene Graph: Id", value=0, minimum=0,
+                              maximum=num_files-1, step=1, visible=False)
+    return winsize, refid
+
+
 def main_demo(tmpdirname, model, device, image_size, server_name, server_port):
     recon_fun = functools.partial(get_reconstructed_scene, tmpdirname, model, device, image_size)
     model_from_scene_fun = functools.partial(get_3D_model_from_scene, tmpdirname)
@@ -171,6 +198,13 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port):
                                            value='linear', label="schedule", info="For global alignment!")
                 niter = gradio.Number(value=300, precision=0, minimum=0, maximum=5000,
                                       label="num_iterations", info="For global alignment!")
+                scenegraph_type = gradio.Dropdown(["complete", "swin", "oneref"],
+                                                  value='complete', label="Scenegraph",
+                                                  info="Define how to make pairs",
+                                                  interactive=True)
+                winsize = gradio.Slider(label="Scene Graph: Window Size", value=1,
+                                        minimum=1, maximum=1, step=1, visible=False)
+                refid = gradio.Slider(label="Scene Graph: Id", value=0, minimum=0, maximum=0, step=1, visible=False)
 
             run_btn = gradio.Button("Run")
 
@@ -190,9 +224,16 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port):
             outgallery = gradio.Gallery(label='rgb,depth,confidence', columns=3, height="100%")
 
             # events
+            scenegraph_type.change(set_scenegraph_options,
+                                   inputs=[inputfiles, winsize, refid, scenegraph_type],
+                                   outputs=[winsize, refid])
+            inputfiles.change(set_scenegraph_options,
+                              inputs=[inputfiles, winsize, refid, scenegraph_type],
+                              outputs=[winsize, refid])
             run_btn.click(fn=recon_fun,
                           inputs=[inputfiles, schedule, niter, min_conf_thr, as_pointcloud,
-                                  mask_sky, clean_depth, transparent_cams, cam_size],
+                                  mask_sky, clean_depth, transparent_cams, cam_size,
+                                  scenegraph_type, winsize, refid],
                           outputs=[scene, outmodel, outgallery])
             min_conf_thr.release(fn=model_from_scene_fun,
                                  inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
