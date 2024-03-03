@@ -7,6 +7,8 @@
 from copy import deepcopy
 import torch
 
+from huggingface_hub import PyTorchModelHubMixin
+
 from .utils.misc import fill_default_args, freeze_all_params, is_symmetrized, interleave, transpose_to_landscape
 from .heads import head_factory
 from dust3r.patch_embed import get_patch_embed
@@ -16,7 +18,7 @@ from models.croco import CroCoNet  # noqa
 inf = float('inf')
 
 
-class AsymmetricCroCo3DStereo (CroCoNet):
+class AsymmetricCroCo3DStereo (CroCoNet, PyTorchModelHubMixin):
     """ Two siamese encoders, followed by two decoders.
     The goal is to output 3d points directly, both images in view1's frame
     (hence the asymmetry).   
