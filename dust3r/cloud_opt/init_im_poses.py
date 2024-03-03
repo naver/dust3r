@@ -142,7 +142,7 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
         im_poses[i] = torch.eye(4, device=device)
         im_focals[i] = estimate_focal(pred_i[i_j])
 
-    # set intial pointcloud based on pairwise graph
+    # set initial pointcloud based on pairwise graph
     msp_edges = [(i, j)]
     while todo:
         # each time, predict the next one
