@@ -15,6 +15,7 @@ import functools
 import trimesh
 import copy
 import ffmpeg
+import shutil
 from scipy.spatial.transform import Rotation
 
 from dust3r.inference import inference, load_model
@@ -34,6 +35,7 @@ def splitvid(video_path, fps):
     if video_path != None:
         output_format = "png"
         video_name = "-".join(os.path.basename(video_path).split('.'))
+        shutil.rmtree(f"vidframes/{video_name}", ignore_errors=True)
         os.makedirs(f"vidframes/{video_name}", exist_ok=True)
         try:
             process = (
