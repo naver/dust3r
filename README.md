@@ -20,6 +20,7 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
 
 ## Table of Contents
 - [DUSt3R](#dust3r)
+  - [Table of Contents](#table-of-contents)
   - [License](#license)
   - [Get Started](#get-started)
     - [Installation](#installation)
@@ -88,7 +89,7 @@ You can check the hyperparameters we used to train these models in the [section:
 In this demo, you should be able run DUSt3R on your machine to reconstruct a scene.  
 First select images that depicts the same scene.  
 
-You can ajust the global alignment schedule and its number of iterations.  
+You can adjust the global alignment schedule and its number of iterations.  
 Note: if you selected one or two images, the global alignment procedure will be skipped (mode=GlobalAlignerMode.PairViewer)  
 Hit "Run" and wait.  
 When the global alignment ends, the reconstruction appears.  
