@@ -32,7 +32,7 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
     - [Our Hyperparameters](#our-hyperparameters)
 
 ## License
-The code is distributed under the CC BY-NC-SA 4.0 License. See See [LICENSE](LICENSE) for more information. 
+The code is distributed under the CC BY-NC-SA 4.0 License. See [LICENSE](LICENSE) for more information. 
 ```python
 # Copyright (C) 2024-present Naver Corporation. All rights reserved.
 # Licensed under CC BY-NC-SA 4.0 (non-commercial use only).
