@@ -6,8 +6,11 @@ services:
       dockerfile: cpu.Dockerfile 
     ports:
       - "7860:7860"
+    volumes:
+      - ./files/checkpoints:/dust3r/checkpoints
     environment:
       - DEVICE=cpu
+      - MODEL=${MODEL:-DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth}
     cap_add:
       - IPC_LOCK
       - SYS_RESOURCE

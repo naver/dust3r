@@ -3,7 +3,7 @@ FROM nvidia/cuda:12.3.2-cudnn9-devel-ubuntu22.04
 LABEL description="Docker container for DUSt3R with dependencies installed. CUDA VERSION"
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV DEVICE="cpu"
+ENV DEVICE="cuda"
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -42,10 +42,6 @@ SHELL ["/bin/bash", "--login", "-c"]
 RUN conda install -y pytorch torchvision pytorch-cuda=12.1 -c pytorch -c nvidia
 
 RUN pip install -r requirements.txt
-
-# Download pre-trained model
-RUN mkdir -p checkpoints/ \
-    && wget https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth -P checkpoints/
 
 COPY entrypoint.sh /entrypoint.sh
 
