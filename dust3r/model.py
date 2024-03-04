@@ -18,7 +18,7 @@ from models.croco import CroCoNet  # noqa
 inf = float('inf')
 
 
-class AsymmetricCroCo3DStereo (CroCoNet, PyTorchModelHubMixin):
+class AsymmetricCroCo3DStereo (CroCoNet):
     """ Two siamese encoders, followed by two decoders.
     The goal is to output 3d points directly, both images in view1's frame
     (hence the asymmetry).   
@@ -166,3 +166,8 @@ class AsymmetricCroCo3DStereo (CroCoNet, PyTorchModelHubMixin):
 
         res2['pts3d_in_other_view'] = res2.pop('pts3d')  # predict view2's pts3d in view1's frame
         return res1, res2
+
+
+class Dust3R(AsymmetricCroCo3DStereo, PyTorchModelHubMixin):
+    def __init__(self, config):
+        super().__init__(**config)
