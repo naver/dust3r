@@ -8,6 +8,7 @@ import os
 import torch
 import numpy as np
 import PIL.Image
+from PIL.ImageOps import exif_transpose
 import torchvision.transforms as tvf
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 import cv2  # noqa
@@ -75,7 +76,7 @@ def load_images(folder_or_list, size, square_ok=False):
     for path in folder_content:
         if not path.endswith(('.jpg', '.jpeg', '.png', '.JPG')):
             continue
-        img = PIL.Image.open(os.path.join(root, path)).convert('RGB')
+        img = exif_transpose(PIL.Image.open(os.path.join(root, path))).convert('RGB')
         W1, H1 = img.size
         if size == 224:
             # resize short side to 224 (then crop)
