@@ -2,8 +2,8 @@ version: '3.8'
 services:
   dust3r-demo:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./files
+      dockerfile: cuda.Dockerfile 
     ports:
       - "7860:7860"
     environment:

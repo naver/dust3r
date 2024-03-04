@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  dust3r-demo:
+    build:
+      context: ./files
+      dockerfile: cpu.Dockerfile 
+    ports:
+      - "7860:7860"
+    environment:
+      - DEVICE=cpu
+    cap_add:
+      - IPC_LOCK
+      - SYS_RESOURCE
