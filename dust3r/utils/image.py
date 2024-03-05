@@ -9,6 +9,8 @@ import torch
 import numpy as np
 import PIL.Image
 from PIL.ImageOps import exif_transpose
+from pillow_heif import register_heif_opener
+register_heif_opener()
 import torchvision.transforms as tvf
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 import cv2  # noqa
@@ -74,7 +76,7 @@ def load_images(folder_or_list, size, square_ok=False):
 
     imgs = []
     for path in folder_content:
-        if not path.endswith(('.jpg', '.jpeg', '.png', '.JPG')):
+        if not path.endswith(('.jpg', '.jpeg', '.png', '.JPG', '.heic')):
             continue
         img = exif_transpose(PIL.Image.open(os.path.join(root, path))).convert('RGB')
         W1, H1 = img.size
