@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
 ## Training
 
-In this section, we present propose a short demonstration to get started with training DUSt3R.
+In this section, we present a short demonstration to get started with training DUSt3R.
 At the moment, we didn't release the training datasets, so we're going to download and prepare a subset of [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE) and launch the training code on it.
 The demo model will be trained for a few epochs on a very small dataset.
 It will not be very good.
