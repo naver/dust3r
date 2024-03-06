@@ -6,8 +6,8 @@ ENV MODEL="DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
-    git \
-    libglib2.0-0 \
+    git=1:2.34.1-1ubuntu1.10 \
+    libglib2.0-0=2.72.4-0ubuntu2.2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
