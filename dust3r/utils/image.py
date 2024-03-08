@@ -13,6 +13,13 @@ import torchvision.transforms as tvf
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 import cv2  # noqa
 
+try:
+    from pillow_heif import register_heif_opener  # noqa
+    register_heif_opener()
+    heif_support_enabled = True
+except ImportError:
+    heif_support_enabled = False
+
 ImgNorm = tvf.Compose([tvf.ToTensor(), tvf.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
@@ -72,9 +79,14 @@ def load_images(folder_or_list, size, square_ok=False):
     else:
         raise ValueError(f'bad {folder_or_list=} ({type(folder_or_list)})')
 
+    supported_images_extensions = ['.jpg', '.jpeg', '.png', '.JPG']
+    if heif_support_enabled:
+        supported_images_extensions += ['.heic', '.heif']
+    supported_images_extensions = tuple(supported_images_extensions)
+
     imgs = []
     for path in folder_content:
-        if not path.endswith(('.jpg', '.jpeg', '.png', '.JPG')):
+        if not path.endswith(supported_images_extensions):
             continue
         img = exif_transpose(PIL.Image.open(os.path.join(root, path))).convert('RGB')
         W1, H1 = img.size
