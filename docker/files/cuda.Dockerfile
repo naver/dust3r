@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
 RUN git clone --recursive https://github.com/naver/dust3r /dust3r
 WORKDIR /dust3r
 RUN pip install -r requirements.txt
+RUN pip install -r requirements_optional.txt
 RUN pip install opencv-python==4.8.0.74
 
 WORKDIR /dust3r/croco/models/curope/
