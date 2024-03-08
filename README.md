@@ -27,6 +27,7 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
     - [Installation](#installation)
     - [Checkpoints](#checkpoints)
     - [Interactive demo](#interactive-demo)
+    - [Interactive demo with docker](#interactive-demo-with-docker)
   - [Usage](#usage)
   - [Training](#training)
     - [Demo](#demo)
@@ -112,6 +113,28 @@ python3 demo.py --weights checkpoints/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth
 # Use --local_network to make it accessible on the local network, or --server_name to specify the url manually
 # Use --server_port to change the port, by default it will search for an available port starting at 7860
 # Use --device to use a different device, by default it's "cuda"
+```
+
+### Interactive demo with docker
+
+To run DUSt3R using Docker, including with NVIDIA CUDA support, follow these instructions:
+
+1. **Install Docker**: If not already installed, download and install `docker` and `docker compose` from the [Docker website](https://www.docker.com/get-started).
+
+2. **Install NVIDIA Docker Toolkit**: For GPU support, install the NVIDIA Docker toolkit from the [Nvidia website](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
+3. **Build the Docker image and run it**: `cd` into the `./docker` directory and run the following commands: 
+
+```bash
+cd docker
+bash run.sh --with-cuda --model-name="DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
+```
+
+Or if you want to run the demo without CUDA support, run the following command:
+
+```bash 
+cd docker
+bash run.sh --model-name="DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
 ```
 
 ![demo](assets/demo.jpg)
