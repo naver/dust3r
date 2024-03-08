@@ -1,0 +1,1 @@
+pillow-heif  # add heif/heic image support
