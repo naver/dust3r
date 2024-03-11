@@ -97,6 +97,21 @@ class PointCloudOptimizer(BasePCOptimizer):
 
         self.im_pp.requires_grad_(False)
 
+    def _get_msk_indices(self, msk):
+        if msk is None:
+            return range(self.n_imgs)
+        elif isinstance(msk, int):
+            return [msk]
+        elif isinstance(msk, (tuple, list)):
+            return self._get_msk_indices(np.array(msk))
+        elif msk.dtype in (bool, torch.bool, np.bool_):
+            assert len(msk) == self.n_imgs
+            return np.cumsum([0] + msk.tolist())
+        elif np.issubdtype(msk.dtype, np.integer):
+            return msk
+        else:
+            raise ValueError(f'bad {msk=}')
+
     def _no_grad(self, tensor):
         assert tensor.requires_grad, 'it must be True at this point, otherwise no modification occurs'
 
