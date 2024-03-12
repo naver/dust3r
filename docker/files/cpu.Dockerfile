@@ -32,7 +32,7 @@ RUN pip install opencv-python==4.8.0.74
 
 WORKDIR /dust3r
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT [ "./entrypoint.sh" ]
