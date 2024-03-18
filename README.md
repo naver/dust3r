@@ -137,6 +137,8 @@ cd docker
 bash run.sh --model-name="DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
 ```
 
+Visit `http://127.0.0.1:7860/` for the started web UI.
+
 ![demo](assets/demo.jpg)
 
 ## Usage
