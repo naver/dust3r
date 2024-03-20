@@ -79,14 +79,14 @@ def load_images(folder_or_list, size, square_ok=False):
     else:
         raise ValueError(f'bad {folder_or_list=} ({type(folder_or_list)})')
 
-    supported_images_extensions = ['.jpg', '.jpeg', '.png', '.JPG']
+    supported_images_extensions = ['.jpg', '.jpeg', '.png']
     if heif_support_enabled:
         supported_images_extensions += ['.heic', '.heif']
     supported_images_extensions = tuple(supported_images_extensions)
 
     imgs = []
     for path in folder_content:
-        if not path.endswith(supported_images_extensions):
+        if not path.lower().endswith(supported_images_extensions):
             continue
         img = exif_transpose(PIL.Image.open(os.path.join(root, path))).convert('RGB')
         W1, H1 = img.size
