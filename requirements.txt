@@ -10,3 +10,4 @@ einops
 trimesh
 tensorboard
 pyglet<2
+git+https://github.com/huggingface/huggingface_hub.git
