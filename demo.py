@@ -29,6 +29,19 @@ pl.ion()
 torch.backends.cuda.matmul.allow_tf32 = True  # for gpu >= Ampere and pytorch >= 1.12
 batch_size = 1
 
+from nuscenes import NuScenes
+
+def get_imagefiles(scene_num):
+    my_scene = nusc.scene[scene_num]
+    first_sample_token = my_scene['first_sample_token']
+    my_sample = nusc.get('sample', first_sample_token)
+    filenames = []
+    for sensor in my_sample['data']:
+        if sensor.startswith('CAM'):
+            cam_front_data = nusc.get('sample_data', my_sample['data'][sensor])
+            filename = cam_front_data['filename']
+            filenames.append(os.path.join('data/nuscenes', filename))
+    return filenames
 
 def get_args_parser():
     parser = argparse.ArgumentParser()
@@ -193,6 +206,7 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port):
         gradio.HTML('<h2 style="text-align: center;">DUSt3R Demo</h2>')
         with gradio.Column():
             inputfiles = gradio.File(file_count="multiple")
+            scene_num = gradio.Number(value=1, precision=0, minimum=0, maximum=10, label="Number of scenes")
             with gradio.Row():
                 schedule = gradio.Dropdown(["linear", "cosine"],
                                            value='linear', label="schedule", info="For global alignment!")
@@ -224,6 +238,7 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port):
             outgallery = gradio.Gallery(label='rgb,depth,confidence', columns=3, height="100%")
 
             # events
+            scene_num.change(get_imagefiles, inputs=scene_num, outputs=inputfiles)
             scenegraph_type.change(set_scenegraph_options,
                                    inputs=[inputfiles, winsize, refid, scenegraph_type],
                                    outputs=[winsize, refid])
@@ -275,6 +290,8 @@ if __name__ == '__main__':
         server_name = args.server_name
     else:
         server_name = '0.0.0.0' if args.local_network else '127.0.0.1'
+    # load nuscenes images
+    nusc = NuScenes(version='v1.0-mini', dataroot='data/nuscenes', verbose=True)
 
     model = load_model(args.weights, args.device)
     # dust3r will write the 3D model inside tmpdirname
