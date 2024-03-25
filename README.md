@@ -1,4 +1,4 @@
-# DUSt3R
+![demo](assets/dust3r.jpg)
 
 Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`  
 [[Project page](https://dust3r.europe.naverlabs.com/)], [[DUSt3R arxiv](https://arxiv.org/abs/2312.14132)]  
@@ -20,18 +20,17 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
 
 ## Table of Contents
 
-- [DUSt3R](#dust3r)
-  - [Table of Contents](#table-of-contents)
-  - [License](#license)
-  - [Get Started](#get-started)
-    - [Installation](#installation)
-    - [Checkpoints](#checkpoints)
-    - [Interactive demo](#interactive-demo)
-    - [Interactive demo with docker](#interactive-demo-with-docker)
-  - [Usage](#usage)
-  - [Training](#training)
-    - [Demo](#demo)
-    - [Our Hyperparameters](#our-hyperparameters)
+- [Table of Contents](#table-of-contents)
+- [License](#license)
+- [Get Started](#get-started)
+  - [Installation](#installation)
+  - [Checkpoints](#checkpoints)
+  - [Interactive demo](#interactive-demo)
+  - [Interactive demo with docker](#interactive-demo-with-docker)
+- [Usage](#usage)
+- [Training](#training)
+  - [Demo](#demo)
+  - [Our Hyperparameters](#our-hyperparameters)
 
 ## License
 
