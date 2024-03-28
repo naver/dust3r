@@ -63,13 +63,14 @@ class PointCloudOptimizer(BasePCOptimizer):
     def _check_all_imgs_are_selected(self, msk):
         assert np.all(self._get_msk_indices(msk) == np.arange(self.n_imgs)), 'incomplete mask!'
 
-    def preset_pose(self, known_poses, pose_msk=None):  # cam-to-world
+    def preset_pose(self, known_poses, pose_msk=None, verbose=False):  # cam-to-world
         self._check_all_imgs_are_selected(pose_msk)
 
         if isinstance(known_poses, torch.Tensor) and known_poses.ndim == 2:
             known_poses = [known_poses]
         for idx, pose in zip(self._get_msk_indices(pose_msk), known_poses):
-            print(f' (setting pose #{idx} = {pose[:3,3]})')
+            if verbose:
+                print(f' (setting pose #{idx} = {pose[:3,3]})')
             self._no_grad(self._set_pose(self.im_poses, idx, torch.tensor(pose)))
 
         # normalize scale if there's less than 1 known pose
@@ -79,11 +80,12 @@ class PointCloudOptimizer(BasePCOptimizer):
         self.im_poses.requires_grad_(False)
         self.norm_pw_scale = False
 
-    def preset_focal(self, known_focals, msk=None):
+    def preset_focal(self, known_focals, msk=None, verbose=False):
         self._check_all_imgs_are_selected(msk)
 
         for idx, focal in zip(self._get_msk_indices(msk), known_focals):
-            print(f' (setting focal #{idx} = {focal})')
+            if verbose:
+                print(f' (setting focal #{idx} = {focal})')
             self._no_grad(self._set_focal(idx, focal))
 
         self.im_focals.requires_grad_(False)

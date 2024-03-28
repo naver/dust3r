@@ -68,8 +68,9 @@ def loss_of_one_batch(batch, model, criterion, device, symmetrize_batch=False, u
 
 
 @torch.no_grad()
-def inference(pairs, model, device, batch_size=8):
-    print(f'>> Inference with model on {len(pairs)} image pairs')
+def inference(pairs, model, device, batch_size=8, verbose=False):
+    if verbose:
+        print(f'>> Inference with model on {len(pairs)} image pairs')
     result = []
 
     # first, check if all images have the same size
@@ -77,13 +78,12 @@ def inference(pairs, model, device, batch_size=8):
     if multiple_shapes:  # force bs=1
         batch_size = 1
 
-    for i in tqdm.trange(0, len(pairs), batch_size):
+    for i in tqdm.trange(0, len(pairs), batch_size) if verbose else range(0, len(pairs), batch_size):
         res = loss_of_one_batch(collate_with_cat(pairs[i:i+batch_size]), model, None, device)
         result.append(to_cpu(res))
 
     result = collate_with_cat(result, lists=multiple_shapes)
 
-    torch.cuda.empty_cache()
     return result
 
 

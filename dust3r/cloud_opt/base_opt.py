@@ -294,6 +294,7 @@ class BasePCOptimizer (nn.Module):
             return loss, details
         return loss
 
+    @torch.cuda.amp.autocast(enabled=False)
     def compute_global_alignment(self, init=None, niter_PnP=10, **kw):
         if init is None:
             pass
@@ -304,7 +305,7 @@ class BasePCOptimizer (nn.Module):
         else:
             raise ValueError(f'bad value for {init=}')
 
-        global_alignment_loop(self, **kw)
+        return global_alignment_loop(self, **kw)
 
     @torch.no_grad()
     def mask_sky(self):
@@ -354,22 +355,31 @@ def global_alignment_loop(net, lr=0.01, niter=300, schedule='cosine', lr_min=1e-
     lr_base = lr
     optimizer = torch.optim.Adam(params, lr=lr, betas=(0.9, 0.9))
 
-    with tqdm.tqdm(total=niter) as bar:
-        while bar.n < bar.total:
-            t = bar.n / bar.total
+    if verbose:
+        with tqdm.tqdm(total=niter) as bar:
+            while bar.n < bar.total:
+                loss = global_alignment_iter(net, bar.n, niter, lr_base, lr_min, optimizer, schedule)
+                bar.set_postfix_str(f'{lr=:g} loss={loss:g}')
+                bar.update()
+    else:
+        for n in range(niter):
+            loss = global_alignment_iter(net, n, niter, lr_base, lr_min, optimizer, schedule)
 
-            if schedule == 'cosine':
-                lr = cosine_schedule(t, lr_base, lr_min)
-            elif schedule == 'linear':
-                lr = linear_schedule(t, lr_base, lr_min)
-            else:
-                raise ValueError(f'bad lr {schedule=}')
-            adjust_learning_rate_by_lr(optimizer, lr)
+    return loss
 
-            optimizer.zero_grad()
-            loss = net()
-            loss.backward()
-            optimizer.step()
-            loss = float(loss)
-            bar.set_postfix_str(f'{lr=:g} loss={loss:g}')
-            bar.update()
+
+def global_alignment_iter(net, cur_iter, niter, lr_base, lr_min, optimizer, schedule):
+    t = cur_iter / niter
+    if schedule == 'cosine':
+        lr = cosine_schedule(t, lr_base, lr_min)
+    elif schedule == 'linear':
+        lr = linear_schedule(t, lr_base, lr_min)
+    else:
+        raise ValueError(f'bad lr {schedule=}')
+    adjust_learning_rate_by_lr(optimizer, lr)
+    optimizer.zero_grad()
+    loss = net()
+    loss.backward()
+    optimizer.step()
+
+    return float(loss)
