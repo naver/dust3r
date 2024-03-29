@@ -8,7 +8,14 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
 ![High level overview of DUSt3R capabilities](assets/dust3r_archi.jpg)
 
 ```bibtex
-@misc{wang2023dust3r,
+@inproceedings{dust3r_cvpr24,
+      title={DUSt3R: Geometric 3D Vision Made Easy}, 
+      author={Shuzhe Wang and Vincent Leroy and Yohann Cabon and Boris Chidlovskii and Jerome Revaud},
+	booktitle = {CVPR},
+	year = {2024}
+}
+
+@misc{dust3r_arxiv23,
       title={DUSt3R: Geometric 3D Vision Made Easy}, 
       author={Shuzhe Wang and Vincent Leroy and Yohann Cabon and Boris Chidlovskii and Jerome Revaud},
       year={2023},
