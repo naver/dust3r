@@ -12,8 +12,9 @@ from dust3r.utils.misc import invalid_to_nans
 from dust3r.utils.geometry import depthmap_to_pts3d, geotrf
 
 
-def load_model(model_path, device):
-    print('... loading model from', model_path)
+def load_model(model_path, device, verbose=True):
+    if verbose:
+        print('... loading model from', model_path)
     ckpt = torch.load(model_path, map_location='cpu')
     args = ckpt['args'].model.replace("ManyAR_PatchEmbed", "PatchEmbedDust3R")
     if 'landscape_only' not in args:
@@ -21,9 +22,12 @@ def load_model(model_path, device):
     else:
         args = args.replace(" ", "").replace('landscape_only=True', 'landscape_only=False')
     assert "landscape_only=False" in args
-    print(f"instantiating : {args}")
+    if verbose:
+        print(f"instantiating : {args}")
     net = eval(args)
-    print(net.load_state_dict(ckpt['model'], strict=False))
+    s = net.load_state_dict(ckpt['model'], strict=False)
+    if verbose:
+        print(s)
     return net.to(device)
 
 
@@ -68,8 +72,9 @@ def loss_of_one_batch(batch, model, criterion, device, symmetrize_batch=False, u
 
 
 @torch.no_grad()
-def inference(pairs, model, device, batch_size=8):
-    print(f'>> Inference with model on {len(pairs)} image pairs')
+def inference(pairs, model, device, batch_size=8, verbose=True):
+    if verbose:
+        print(f'>> Inference with model on {len(pairs)} image pairs')
     result = []
 
     # first, check if all images have the same size
@@ -77,13 +82,12 @@ def inference(pairs, model, device, batch_size=8):
     if multiple_shapes:  # force bs=1
         batch_size = 1
 
-    for i in tqdm.trange(0, len(pairs), batch_size):
+    for i in tqdm.trange(0, len(pairs), batch_size, disable=not verbose):
         res = loss_of_one_batch(collate_with_cat(pairs[i:i+batch_size]), model, None, device)
         result.append(to_cpu(res))
 
     result = collate_with_cat(result, lists=multiple_shapes)
 
-    torch.cuda.empty_cache()
     return result
 
 
