@@ -21,7 +21,7 @@ from dust3r.cloud_opt.commons import edge_str, i_j_ij, compute_edge_scores
 
 
 @torch.no_grad()
-def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3, verbose=True):
+def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3):
     device = self.device
 
     # indices of known poses
@@ -35,7 +35,7 @@ def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3, verbose=True):
 
     best_depthmaps = {}
     # init all pairwise poses
-    for e, (i, j) in enumerate(tqdm(self.edges, disable=not verbose)):
+    for e, (i, j) in enumerate(tqdm(self.edges, disable=not self.verbose)):
         i_j = edge_str(i, j)
 
         # find relative pose for this pair
@@ -71,7 +71,8 @@ def init_minimum_spanning_tree(self, **kw):
     device = self.device
     pts3d, _, im_focals, im_poses = minimum_spanning_tree(self.imshapes, self.edges,
                                                           self.pred_i, self.pred_j, self.conf_i, self.conf_j, self.im_conf, self.min_conf_thr,
-                                                          device, has_im_poses=self.has_im_poses, **kw)
+                                                          device, has_im_poses=self.has_im_poses, verbose=self.verbose,
+                                                          **kw)
 
     return init_from_pts3d(self, pts3d, im_focals, im_poses)
 

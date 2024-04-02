@@ -301,10 +301,10 @@ class BasePCOptimizer (nn.Module):
         if init is None:
             pass
         elif init == 'msp' or init == 'mst':
-            init_fun.init_minimum_spanning_tree(self, niter_PnP=niter_PnP, verbose=self.verbose)
+            init_fun.init_minimum_spanning_tree(self, niter_PnP=niter_PnP)
         elif init == 'known_poses':
             init_fun.init_from_known_poses(self, min_conf_thr=self.min_conf_thr,
-                                           niter_PnP=niter_PnP, verbose=self.verbose)
+                                           niter_PnP=niter_PnP)
         else:
             raise ValueError(f'bad value for {init=}')
 
