@@ -63,13 +63,13 @@ class PointCloudOptimizer(BasePCOptimizer):
     def _check_all_imgs_are_selected(self, msk):
         assert np.all(self._get_msk_indices(msk) == np.arange(self.n_imgs)), 'incomplete mask!'
 
-    def preset_pose(self, known_poses, pose_msk=None, verbose=False):  # cam-to-world
+    def preset_pose(self, known_poses, pose_msk=None):  # cam-to-world
         self._check_all_imgs_are_selected(pose_msk)
 
         if isinstance(known_poses, torch.Tensor) and known_poses.ndim == 2:
             known_poses = [known_poses]
         for idx, pose in zip(self._get_msk_indices(pose_msk), known_poses):
-            if verbose:
+            if self.verbose:
                 print(f' (setting pose #{idx} = {pose[:3,3]})')
             self._no_grad(self._set_pose(self.im_poses, idx, torch.tensor(pose)))
 
@@ -80,11 +80,11 @@ class PointCloudOptimizer(BasePCOptimizer):
         self.im_poses.requires_grad_(False)
         self.norm_pw_scale = False
 
-    def preset_focal(self, known_focals, msk=None, verbose=False):
+    def preset_focal(self, known_focals, msk=None):
         self._check_all_imgs_are_selected(msk)
 
         for idx, focal in zip(self._get_msk_indices(msk), known_focals):
-            if verbose:
+            if self.verbose:
                 print(f' (setting focal #{idx} = {focal})')
             self._no_grad(self._set_focal(idx, focal))
 
@@ -94,7 +94,8 @@ class PointCloudOptimizer(BasePCOptimizer):
         self._check_all_imgs_are_selected(msk)
 
         for idx, pp in zip(self._get_msk_indices(msk), known_pp):
-            print(f' (setting principal point #{idx} = {pp})')
+            if self.verbose:
+                print(f' (setting principal point #{idx} = {pp})')
             self._no_grad(self._set_principal_point(idx, pp))
 
         self.im_pp.requires_grad_(False)

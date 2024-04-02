@@ -21,7 +21,7 @@ from dust3r.cloud_opt.commons import edge_str, i_j_ij, compute_edge_scores
 
 
 @torch.no_grad()
-def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3, verbose=False):
+def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3, verbose=True):
     device = self.device
 
     # indices of known poses
@@ -35,7 +35,7 @@ def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3, verbose=False):
 
     best_depthmaps = {}
     # init all pairwise poses
-    for e, (i, j) in enumerate(tqdm(self.edges) if verbose else self.edges):
+    for e, (i, j) in enumerate(tqdm(self.edges, disable=not verbose)):
         i_j = edge_str(i, j)
 
         # find relative pose for this pair
@@ -115,11 +115,12 @@ def init_from_pts3d(self, pts3d, im_focals, im_poses):
             if im_focals[i] is not None:
                 self._set_focal(i, im_focals[i])
 
-    print(' init loss =', float(self()))
+    if self.verbose:
+        print(' init loss =', float(self()))
 
 
 def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_conf, min_conf_thr,
-                          device, has_im_poses=True, niter_PnP=10):
+                          device, has_im_poses=True, niter_PnP=10, verbose=True):
     n_imgs = len(imshapes)
     sparse_graph = -dict_to_sparse_graph(compute_edge_scores(map(i_j_ij, edges), conf_i, conf_j))
     msp = sp.csgraph.minimum_spanning_tree(sparse_graph).tocoo()
@@ -133,7 +134,8 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
 
     # init with strongest edge
     score, i, j = todo.pop()
-    print(f' init edge ({i}*,{j}*) {score=}')
+    if verbose:
+        print(f' init edge ({i}*,{j}*) {score=}')
     i_j = edge_str(i, j)
     pts3d[i] = pred_i[i_j].clone()
     pts3d[j] = pred_j[i_j].clone()
@@ -152,7 +154,8 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
             im_focals[i] = estimate_focal(pred_i[i_j])
 
         if i in done:
-            print(f' init edge ({i},{j}*) {score=}')
+            if verbose:
+                print(f' init edge ({i},{j}*) {score=}')
             assert j not in done
             # align pred[i] with pts3d[i], and then set j accordingly
             i_j = edge_str(i, j)
@@ -166,7 +169,8 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
                 im_poses[i] = sRT_to_4x4(1, R, T, device)
 
         elif j in done:
-            print(f' init edge ({i}*,{j}) {score=}')
+            if verbose:
+                print(f' init edge ({i}*,{j}) {score=}')
             assert i not in done
             i_j = edge_str(i, j)
             s, R, T = rigid_points_registration(pred_j[i_j], pts3d[j], conf=conf_j[i_j])

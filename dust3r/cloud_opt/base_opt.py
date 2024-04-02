@@ -36,7 +36,7 @@ class BasePCOptimizer (nn.Module):
             attrs = '''edges is_symmetrized dist n_imgs pred_i pred_j imshapes 
                         min_conf_thr conf_thr conf_i conf_j im_conf
                         base_scale norm_pw_scale POSE_DIM pw_poses 
-                        pw_adaptors pw_adaptors has_im_poses rand_pose imgs'''.split()
+                        pw_adaptors pw_adaptors has_im_poses rand_pose imgs verbose'''.split()
             self.__dict__.update({k: other[k] for k in attrs})
         else:
             self._init_from_views(*args, **kwargs)
@@ -49,7 +49,8 @@ class BasePCOptimizer (nn.Module):
                          allow_pw_adaptors=False,
                          pw_break=20,
                          rand_pose=torch.randn,
-                         iterationsCount=None):
+                         iterationsCount=None,
+                         verbose=True):
         super().__init__()
         if not isinstance(view1['idx'], list):
             view1['idx'] = view1['idx'].tolist()
@@ -58,6 +59,7 @@ class BasePCOptimizer (nn.Module):
         self.edges = [(int(i), int(j)) for i, j in zip(view1['idx'], view2['idx'])]
         self.is_symmetrized = set(self.edges) == {(j, i) for i, j in self.edges}
         self.dist = ALL_DISTS[dist]
+        self.verbose = verbose
 
         self.n_imgs = self._check_edges()
 
@@ -299,9 +301,10 @@ class BasePCOptimizer (nn.Module):
         if init is None:
             pass
         elif init == 'msp' or init == 'mst':
-            init_fun.init_minimum_spanning_tree(self, niter_PnP=niter_PnP)
+            init_fun.init_minimum_spanning_tree(self, niter_PnP=niter_PnP, verbose=self.verbose)
         elif init == 'known_poses':
-            init_fun.init_from_known_poses(self, min_conf_thr=self.min_conf_thr, niter_PnP=niter_PnP)
+            init_fun.init_from_known_poses(self, min_conf_thr=self.min_conf_thr,
+                                           niter_PnP=niter_PnP, verbose=self.verbose)
         else:
             raise ValueError(f'bad value for {init=}')
 
@@ -344,12 +347,14 @@ class BasePCOptimizer (nn.Module):
         return viz
 
 
-def global_alignment_loop(net, lr=0.01, niter=300, schedule='cosine', lr_min=1e-6, verbose=False):
+def global_alignment_loop(net, lr=0.01, niter=300, schedule='cosine', lr_min=1e-6):
     params = [p for p in net.parameters() if p.requires_grad]
     if not params:
         return net
 
+    verbose = net.verbose
     if verbose:
+        print('Global alignement - optimizing for:')
         print([name for name, value in net.named_parameters() if value.requires_grad])
 
     lr_base = lr
@@ -364,7 +369,6 @@ def global_alignment_loop(net, lr=0.01, niter=300, schedule='cosine', lr_min=1e-
     else:
         for n in range(niter):
             loss = global_alignment_iter(net, n, niter, lr_base, lr_min, optimizer, schedule)
-
     return loss
 
 

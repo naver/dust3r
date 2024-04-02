@@ -65,15 +65,17 @@ def _resize_pil_image(img, long_edge_size):
     return img.resize(new_size, interp)
 
 
-def load_images(folder_or_list, size, square_ok=False):
+def load_images(folder_or_list, size, square_ok=False, verbose=True):
     """ open and convert all images in a list or folder to proper input format for DUSt3R
     """
     if isinstance(folder_or_list, str):
-        print(f'>> Loading images from {folder_or_list}')
+        if verbose:
+            print(f'>> Loading images from {folder_or_list}')
         root, folder_content = folder_or_list, sorted(os.listdir(folder_or_list))
 
     elif isinstance(folder_or_list, list):
-        print(f'>> Loading a list of {len(folder_or_list)} images')
+        if verbose:
+            print(f'>> Loading a list of {len(folder_or_list)} images')
         root, folder_content = '', folder_or_list
 
     else:
@@ -108,10 +110,12 @@ def load_images(folder_or_list, size, square_ok=False):
             img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
 
         W2, H2 = img.size
-        print(f' - adding {path} with resolution {W1}x{H1} --> {W2}x{H2}')
+        if verbose:
+            print(f' - adding {path} with resolution {W1}x{H1} --> {W2}x{H2}')
         imgs.append(dict(img=ImgNorm(img)[None], true_shape=np.int32(
             [img.size[::-1]]), idx=len(imgs), instance=str(len(imgs))))
 
     assert imgs, 'no images foud at '+root
-    print(f' (Found {len(imgs)} images)')
+    if verbose:
+        print(f' (Found {len(imgs)} images)')
     return imgs
