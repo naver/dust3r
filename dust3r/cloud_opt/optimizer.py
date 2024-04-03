@@ -109,7 +109,7 @@ class PointCloudOptimizer(BasePCOptimizer):
             return self._get_msk_indices(np.array(msk))
         elif msk.dtype in (bool, torch.bool, np.bool_):
             assert len(msk) == self.n_imgs
-            return np.cumsum([0] + msk.tolist())
+            return np.where(msk)[0]
         elif np.issubdtype(msk.dtype, np.integer):
             return msk
         else:
