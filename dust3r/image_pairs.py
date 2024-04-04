@@ -29,11 +29,6 @@ def make_pairs(imgs, scene_graph='complete', prefilter=None, symmetrize=True):
             if j != refid:
                 pairs.append((imgs[refid], imgs[j]))
 
-    elif scene_graph == 'pairs':
-        assert len(imgs) % 2 == 0
-        for i in range(0, len(imgs), 2):
-            pairs.append((imgs[i], imgs[i+1]))
-
     if symmetrize:
         pairs += [(img2, img1) for img1, img2 in pairs]
 
