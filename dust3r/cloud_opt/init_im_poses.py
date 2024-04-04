@@ -235,8 +235,7 @@ def estimate_focal(pts3d_i, pp=None):
         H, W, THREE = pts3d_i.shape
         assert THREE == 3
         pp = torch.tensor((W/2, H/2), device=pts3d_i.device)
-    focal = estimate_focal_knowing_depth(pts3d_i.unsqueeze(0), pp.unsqueeze(
-        0), focal_mode='weiszfeld', min_focal=0.5, max_focal=3.5).ravel()
+    focal = estimate_focal_knowing_depth(pts3d_i.unsqueeze(0), pp.unsqueeze(0), focal_mode='weiszfeld').ravel()
     return float(focal)
 
 
