@@ -8,6 +8,7 @@ import PIL.Image
 import numpy as np
 from scipy.spatial.transform import Rotation
 import torch
+import trimesh
 
 from dust3r.utils.geometry import geotrf, get_med_dist_between_poses
 from dust3r.utils.device import to_numpy
