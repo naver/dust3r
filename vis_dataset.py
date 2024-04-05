@@ -13,9 +13,19 @@ from dust3r.datasets.arkitscenes import Arkit
 # dataset = Co3d(mask_bg=False, split='train', ROOT="/Users/brad/workspace/neuro3d/data/hypersim_datasets_processed", resolution=224, aug_crop=16)
 # dataset = Co3d(split='train', ROOT="data/co3d_subset_processed", resolution=224, aug_crop=16)
 # dataset = Co3d(mask_bg=False, split='train', ROOT="/Users/brad/Downloads/polycam_preprocessed_output", resolution=224, aug_crop=16)
-dataset = Co3d(mask_bg=False, split='train', ROOT="/Users/brad/workspace/neuro3d/data/ARKitScenes_small_processed", resolution=224, aug_crop=16)
+dataset = Arkit(mask_bg=False, split='train', ROOT="/Users/brad/workspace/neuro3d/data/ARKitScenes_small_processed", resolution=224, aug_crop=16)
+# TODO add this into loop if you want blue/red
+### make everything blue and red ###########################
+# if len(views) == 0:
+#     rgb_image = np.ones_like(rgb_image, dtype=np.uint8)
+#     rgb_image *= np.array([[[0,0,255]]], dtype=np.uint8)
+# elif len(views) == 1:
+#     rgb_image = np.ones_like(rgb_image, dtype=np.uint8)
+#     rgb_image *= np.array([[[255,0,0]]], dtype=np.uint8)
+############################################################
 while True:
-    for idx in np.random.permutation(len(dataset)):
+    for idx in np.random.choice(range(len(dataset)), 1):
+        print(f"selected view index: {idx}")
         views = dataset[idx]
         assert len(views) == 2
         if view_name(views[0]) == view_name(views[1]):

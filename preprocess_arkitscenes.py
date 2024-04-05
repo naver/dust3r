@@ -288,6 +288,6 @@ if __name__ == "__main__":
         input_dir=input_dir,
         split="train",
         frame_subsample_rate=0.167, # equivalent of 10 fps (same as hi-res data)
-        pair_subsample_rate=0.05, # get sampling down to about 800 pairs per scene
-        min_frame_desync=1,
+        pair_subsample_rate=0.1, # get sampling down to about 800 pairs per scene
+        min_frame_desync=10,
     )

@@ -26,42 +26,49 @@ class Arkit(BaseStereoViewDataset):
         # load all scenes
         with open(osp.join(self.ROOT, f'selected_seqs_{self.split}.json'), 'r') as f:
             self.scenes = json.load(f)
-            self.scenes = {k: v for k, v in self.scenes.items() if len(v) > 0}
-            self.scenes = {(k, k2): v2 for k, v in self.scenes.items()
-                           for k2, v2 in v.items()}
+        self.scenes = {k: v for k, v in self.scenes.items() if len(v) > 0}
+        self.scenes = {(k, k2): v2 for k, v in self.scenes.items()
+                        for k2, v2 in v.items()}
         self.scene_list = list(self.scenes.keys())
         print(f"{len(self.scene_list)} scenes in scene list")
 
-        self.combinations = self._get_combinations(self.scene_list)
+        # load all pairs
+        with open(osp.join(self.ROOT, f'selected_pairs_{self.split}.json'), 'r') as f:
+            pairs_metadata = json.load(f)
+
+        self.combinations = {}
+        self.scene_sizes = {}
+        for dataset_name,pairs_dataset in pairs_metadata.items():
+            for sid,pair_info in pairs_dataset.items():
+                self.combinations[(dataset_name,sid)] = pair_info
+                self.scene_sizes[(dataset_name,sid)] = len(pair_info)
         self.invalidate = {scene: {} for scene in self.scene_list}
 
     def __len__(self):
-        return len(self.scene_list) * len(self.combinations)
-
-    @staticmethod
-    def _get_combinations(scenes):
-        print(f"computing pair-wise overlaps for {len(scenes)} scenes")
-        for s1 in scenes:
-            for s2 in scenes:
-                print(s1)
-                print(s2)
-                1/0
-
-        # {
-        #     s:
-        #     [(i, j)
-        #         for i, j in itertools.combinations(range(len(vals)), 2)
-        #         if 0 < abs(i-j) <= 30
-        #     ]
-        #     for s,vals in self.scenes.items()
-        # }
+        # return len(self.scene_list) * len(self.combinations)
+        return sum([len(v) for v in self.combinations.values()])
 
     def _get_views(self, idx, resolution, rng):
         # choose a scene
-        obj, instance = self.scene_list[idx // len(self.combinations)]
+        max_idx = 0
+        selected_scene = self.scene_list[0]
+        for k in self.scene_list:
+            print(k)
+            # k is obj,inst pair
+            new_max = max_idx + self.scene_sizes[k] - 1
+            if new_max > idx:
+                break
+            selected_scene = k
+            max_idx = new_max_idx
+        within_scene_idx = idx - max_idx
+
+        print(f"max idx: {max_idx} within scene idx: {within_scene_idx}")
+
+        # obj, instance = self.scene_list[idx // len(self.combinations)]
+        obj,instance = selected_scene
         image_pool = self.scenes[obj, instance]
-        cur_combinations = self.combinations[obj, instance]
-        im1_idx, im2_idx = cur_combinations[idx % len(cur_combinations)]
+        im1_idx, im2_idx,iou = self.combinations[(obj,instance)][within_scene_idx]
+        print(f"selected pair with iou: {iou} ({im1_idx,im2_idx})")
 
         # add a bit of randomness
         last = len(image_pool)-1
@@ -99,15 +106,6 @@ class Arkit(BaseStereoViewDataset):
             # load image and depth
             rgb_image = imread_cv2(impath)
 
-            ### make everything blue and red ###########################
-            if len(views) == 0:
-                rgb_image = np.ones_like(rgb_image, dtype=np.uint8)
-                rgb_image *= np.array([[[0,0,255]]], dtype=np.uint8)
-            elif len(views) == 1:
-                rgb_image = np.ones_like(rgb_image, dtype=np.uint8)
-                rgb_image *= np.array([[[255,0,0]]], dtype=np.uint8)
-            ############################################################
-
             depthmap = imread_cv2(impath.replace('images', 'depths') + '.geometric.png', cv2.IMREAD_UNCHANGED)
             depthmap = (depthmap.astype(np.float32) / 65535) * np.nan_to_num(input_metadata['maximum_depth'])
 
@@ -130,7 +128,6 @@ class Arkit(BaseStereoViewDataset):
                 self.invalidate[obj, instance][resolution][im_idx] = True
                 imgs_idxs.append(im_idx)
                 continue
-
             views.append(dict(
                 img=rgb_image,
                 depthmap=depthmap,
