@@ -360,6 +360,7 @@ def global_alignment_loop(net, lr=0.01, niter=300, schedule='cosine', lr_min=1e-
     lr_base = lr
     optimizer = torch.optim.Adam(params, lr=lr, betas=(0.9, 0.9))
 
+    loss = float('inf')
     if verbose:
         with tqdm.tqdm(total=niter) as bar:
             while bar.n < bar.total:

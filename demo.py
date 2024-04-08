@@ -6,6 +6,7 @@
 # gradio demo
 # --------------------------------------------------------
 import argparse
+import math
 import gradio
 import os
 import torch
@@ -169,7 +170,7 @@ def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist,
 
 def set_scenegraph_options(inputfiles, winsize, refid, scenegraph_type):
     num_files = len(inputfiles) if inputfiles is not None else 1
-    max_winsize = max(1, (num_files - 1)//2)
+    max_winsize = max(1, math.ceil((num_files-1)/2))
     if scenegraph_type == "swin":
         winsize = gradio.Slider(label="Scene Graph: Window Size", value=max_winsize,
                                 minimum=1, maximum=max_winsize, step=1, visible=True)
