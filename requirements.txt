@@ -10,3 +10,4 @@ einops
 trimesh
 tensorboard
 pyglet<2
+ffmpeg-python

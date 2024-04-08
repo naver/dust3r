@@ -15,6 +15,8 @@ import tempfile
 import functools
 import trimesh
 import copy
+import ffmpeg
+import shutil
 from scipy.spatial.transform import Rotation
 
 from dust3r.inference import inference, load_model
@@ -30,6 +32,29 @@ pl.ion()
 torch.backends.cuda.matmul.allow_tf32 = True  # for gpu >= Ampere and pytorch >= 1.12
 batch_size = 1
 
+def splitvid(video_path, fps):
+    if video_path != None:
+        output_format = "png"
+        video_name = "-".join(os.path.basename(video_path).split('.'))
+        shutil.rmtree(f"vidframes/{video_name}", ignore_errors=True)
+        os.makedirs(f"vidframes/{video_name}", exist_ok=True)
+        try:
+            process = (
+                ffmpeg.input(video_path)
+                .filter('fps', fps=fps)
+                .output(f"vidframes/{video_name}/%d.{output_format}", start_number=0)
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            print("done")
+            files = os.listdir(f"vidframes/{video_name}")
+            filepaths = []
+            for filename in files:
+                filepaths.append(os.path.join(f"vidframes/{video_name}", filename))
+            return filepaths
+        except ffmpeg.Error as e:
+            print('stdout:', e.stdout.decode('utf8'))
+            print('stderr:', e.stderr.decode('utf8'))
+            raise e
 
 def get_args_parser():
     parser = argparse.ArgumentParser()
@@ -197,7 +222,13 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
         scene = gradio.State(None)
         gradio.HTML('<h2 style="text-align: center;">DUSt3R Demo</h2>')
         with gradio.Column():
-            inputfiles = gradio.File(file_count="multiple")
+            with gradio.Row():
+                with gradio.Column():
+                    inputfiles = gradio.File(file_count="multiple", height=300)
+                with gradio.Column():
+                    vid = gradio.Video(format="mp4", height=300)
+                    fps = gradio.Number(value=1, label="fps", info="frames per second")
+                    split_btn = gradio.Button("Split Video")
             with gradio.Row():
                 schedule = gradio.Dropdown(["linear", "cosine"],
                                            value='linear', label="schedule", info="For global alignment!")
@@ -229,6 +260,7 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
             outgallery = gradio.Gallery(label='rgb,depth,confidence', columns=3, height="100%")
 
             # events
+            split_btn.click(splitvid, inputs=[vid, fps], outputs=[inputfiles])
             scenegraph_type.change(set_scenegraph_options,
                                    inputs=[inputfiles, winsize, refid, scenegraph_type],
                                    outputs=[winsize, refid])
