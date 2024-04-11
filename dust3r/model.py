@@ -13,10 +13,23 @@ from dust3r.patch_embed import get_patch_embed
 
 import dust3r.utils.path_to_croco  # noqa: F401
 from models.croco import CroCoNet  # noqa
+
+try:
+    from huggingface_hub import PyTorchModelHubMixin  # noqa
+except Exception as e:
+    print('Warning, huggingface_hub integration is disabled')
+
+    class PyTorchModelHubMixin:
+        def from_pretrained(**kw):
+            raise NotImplementedError('Install optional dependency huggingface_hub')
+
+        def push_to_hub(**kw):
+            raise NotImplementedError('Install optional dependency huggingface_hub')
+
 inf = float('inf')
 
 
-class AsymmetricCroCo3DStereo (CroCoNet):
+class AsymmetricCroCo3DStereo (CroCoNet, PyTorchModelHubMixin):
     """ Two siamese encoders, followed by two decoders.
     The goal is to output 3d points directly, both images in view1's frame
     (hence the asymmetry).   
