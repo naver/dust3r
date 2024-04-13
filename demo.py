@@ -16,7 +16,8 @@ import trimesh
 import copy
 from scipy.spatial.transform import Rotation
 
-from dust3r.inference import inference, load_model
+from dust3r.inference import inference
+from dust3r.model import AsymmetricCroCo3DStereo
 from dust3r.image_pairs import make_pairs
 from dust3r.utils.image import load_images, rgb
 from dust3r.utils.device import to_numpy
@@ -40,7 +41,10 @@ def get_args_parser():
     parser.add_argument("--server_port", type=int, help=("will start gradio app on this port (if available). "
                                                          "If None, will search for an available port starting at 7860."),
                         default=None)
-    parser.add_argument("--weights", type=str, required=True, help="path to the model weights")
+    parser.add_argument("--model_name", type=str, required=False, choices=["DUSt3R_ViTLarge_BaseDecoder_224_linear",
+                                                                           "DUSt3R_ViTLarge_BaseDecoder_512_linear",
+                                                                           "DUSt3R_ViTLarge_BaseDecoder_512_dpt"], 
+                        help="Model name on the Hugging Face hub")
     parser.add_argument("--device", type=str, default='cuda', help="pytorch device")
     parser.add_argument("--tmp_dir", type=str, default=None, help="value for tempfile.tempdir")
     return parser
@@ -276,7 +280,8 @@ if __name__ == '__main__':
     else:
         server_name = '0.0.0.0' if args.local_network else '127.0.0.1'
 
-    model = load_model(args.weights, args.device)
+    model = AsymmetricCroCo3DStereo.from_pretrained(args.model_name)
+    model.to(args.device)
     # dust3r will write the 3D model inside tmpdirname
     with tempfile.TemporaryDirectory(suffix='dust3r_gradio_demo') as tmpdirname:
         print('Outputing stuff in', tmpdirname)

@@ -67,21 +67,15 @@ python setup.py build_ext --inplace
 cd ../../../
 ```
 
-4. Download pre-trained model
-```bash
-mkdir -p checkpoints/
-wget https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth -P checkpoints/
-```
-
 ### Checkpoints
 
-We provide several pre-trained models:
+We provide several pre-trained models on Hugging Face:
 
 | Modelname   | Training resolutions | Head | Encoder | Decoder |
 |-------------|----------------------|------|---------|---------|
-| [`DUSt3R_ViTLarge_BaseDecoder_224_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_224_linear.pth) | 224x224 | Linear | ViT-L | ViT-B |
-| [`DUSt3R_ViTLarge_BaseDecoder_512_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_linear.pth)   | 512x384, 512x336, 512x288, 512x256, 512x160 | Linear | ViT-L | ViT-B |
-| [`DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth) | 512x384, 512x336, 512x288, 512x256, 512x160 | DPT | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_224_linear.pth`](https://huggingface.co/nielsr/DUSt3R_ViTLarge_BaseDecoder_224_linear) | 224x224 | Linear | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_512_linear.pth`](https://huggingface.co/nielsr/DUSt3R_ViTLarge_BaseDecoder_512_linear)   | 512x384, 512x336, 512x288, 512x256, 512x160 | Linear | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth`](https://huggingface.co/nielsr/DUSt3R_ViTLarge_BaseDecoder_512_dpt) | 512x384, 512x336, 512x288, 512x256, 512x160 | DPT | ViT-L | ViT-B |
 
 You can check the hyperparameters we used to train these models in the [section: Our Hyperparameters](#our-hyperparameters)
 
@@ -109,20 +103,20 @@ python3 demo.py --weights checkpoints/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth
 ## Usage
 
 ```python
-from dust3r.inference import inference, load_model
+from dust3r.inference import inference
+from dust3r.model import AsymmetricCroCo3DStereo
 from dust3r.utils.image import load_images
 from dust3r.image_pairs import make_pairs
 from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
 
 if __name__ == '__main__':
-    model_path = "checkpoints/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
     device = 'cuda'
     batch_size = 1
     schedule = 'cosine'
     lr = 0.01
     niter = 300
 
-    model = load_model(model_path, device)
+    model = AsymmetricCroCo3DStereo.from_pretrained("nielsr/DUSt3R_ViTLarge_BaseDecoder_512_dpt")
     # load_images can take a list of images or a directory
     images = load_images(['croco/assets/Chateau1.png', 'croco/assets/Chateau2.png'], size=512)
     pairs = make_pairs(images, scene_graph='complete', prefilter=None, symmetrize=True)
