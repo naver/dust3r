@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  dust3r-demo:
+    build:
+      context: ./files
+      dockerfile: cuda.Dockerfile 
+    ports:
+      - "7860:7860"
+    environment:
+      - DEVICE=cuda
+      - MODEL=${MODEL:-DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth}
+    volumes:
+      - ./files/checkpoints:/dust3r/checkpoints
+    cap_add:
+      - IPC_LOCK
+      - SYS_RESOURCE
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

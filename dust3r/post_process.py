@@ -9,7 +9,7 @@ import torch
 from dust3r.utils.geometry import xy_grid
 
 
-def estimate_focal_knowing_depth(pts3d, pp, focal_mode='median', min_focal=0.5, max_focal=3.5):
+def estimate_focal_knowing_depth(pts3d, pp, focal_mode='median', min_focal=0., max_focal=np.inf):
     """ Reprojection method, for when the absolute depth is known:
         1) estimate the camera focal using a robust estimator
         2) reproject points onto true rays, minimizing a certain error

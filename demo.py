@@ -6,6 +6,7 @@
 # gradio demo
 # --------------------------------------------------------
 import argparse
+import math
 import gradio
 import os
 import torch
@@ -47,11 +48,14 @@ def get_args_parser():
                         help="Model name on the Hugging Face hub")
     parser.add_argument("--device", type=str, default='cuda', help="pytorch device")
     parser.add_argument("--tmp_dir", type=str, default=None, help="value for tempfile.tempdir")
+    parser.add_argument("--silent", action='store_true', default=False,
+                        help="silence logs")
     return parser
 
 
 def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, cam_size=0.05,
-                                 cam_color=None, as_pointcloud=False, transparent_cams=False):
+                                 cam_color=None, as_pointcloud=False,
+                                 transparent_cams=False, silent=False):
     assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world) == len(focals)
     pts3d = to_numpy(pts3d)
     imgs = to_numpy(imgs)
@@ -87,12 +91,13 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
     rot[:3, :3] = Rotation.from_euler('y', np.deg2rad(180)).as_matrix()
     scene.apply_transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
     outfile = os.path.join(outdir, 'scene.glb')
-    print('(exporting 3D scene to', outfile, ')')
+    if not silent:
+        print('(exporting 3D scene to', outfile, ')')
     scene.export(file_obj=outfile)
     return outfile
 
 
-def get_3D_model_from_scene(outdir, scene, min_conf_thr=3, as_pointcloud=False, mask_sky=False,
+def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud=False, mask_sky=False,
                             clean_depth=False, transparent_cams=False, cam_size=0.05):
     """
     extract 3D_model (glb file) from a reconstructed scene
@@ -114,17 +119,17 @@ def get_3D_model_from_scene(outdir, scene, min_conf_thr=3, as_pointcloud=False, 
     scene.min_conf_thr = float(scene.conf_trf(torch.tensor(min_conf_thr)))
     msk = to_numpy(scene.get_masks())
     return _convert_scene_output_to_glb(outdir, rgbimg, pts3d, msk, focals, cams2world, as_pointcloud=as_pointcloud,
-                                        transparent_cams=transparent_cams, cam_size=cam_size)
+                                        transparent_cams=transparent_cams, cam_size=cam_size, silent=silent)
 
 
-def get_reconstructed_scene(outdir, model, device, image_size, filelist, schedule, niter, min_conf_thr,
+def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist, schedule, niter, min_conf_thr,
                             as_pointcloud, mask_sky, clean_depth, transparent_cams, cam_size,
                             scenegraph_type, winsize, refid):
     """
     from a list of images, run dust3r inference, global aligner.
     then run get_3D_model_from_scene
     """
-    imgs = load_images(filelist, size=image_size)
+    imgs = load_images(filelist, size=image_size, verbose=not silent)
     if len(imgs) == 1:
         imgs = [imgs[0], copy.deepcopy(imgs[0])]
         imgs[1]['idx'] = 1
@@ -134,16 +139,16 @@ def get_reconstructed_scene(outdir, model, device, image_size, filelist, schedul
         scenegraph_type = scenegraph_type + "-" + str(refid)
 
     pairs = make_pairs(imgs, scene_graph=scenegraph_type, prefilter=None, symmetrize=True)
-    output = inference(pairs, model, device, batch_size=batch_size)
+    output = inference(pairs, model, device, batch_size=batch_size, verbose=not silent)
 
     mode = GlobalAlignerMode.PointCloudOptimizer if len(imgs) > 2 else GlobalAlignerMode.PairViewer
-    scene = global_aligner(output, device=device, mode=mode)
+    scene = global_aligner(output, device=device, mode=mode, verbose=not silent)
     lr = 0.01
 
     if mode == GlobalAlignerMode.PointCloudOptimizer:
         loss = scene.compute_global_alignment(init='mst', niter=niter, schedule=schedule, lr=lr)
 
-    outfile = get_3D_model_from_scene(outdir, scene, min_conf_thr, as_pointcloud, mask_sky,
+    outfile = get_3D_model_from_scene(outdir, silent, scene, min_conf_thr, as_pointcloud, mask_sky,
                                       clean_depth, transparent_cams, cam_size)
 
     # also return rgb, depth and confidence imgs
@@ -169,7 +174,7 @@ def get_reconstructed_scene(outdir, model, device, image_size, filelist, schedul
 
 def set_scenegraph_options(inputfiles, winsize, refid, scenegraph_type):
     num_files = len(inputfiles) if inputfiles is not None else 1
-    max_winsize = max(1, (num_files - 1)//2)
+    max_winsize = max(1, math.ceil((num_files-1)/2))
     if scenegraph_type == "swin":
         winsize = gradio.Slider(label="Scene Graph: Window Size", value=max_winsize,
                                 minimum=1, maximum=max_winsize, step=1, visible=True)
@@ -188,9 +193,9 @@ def set_scenegraph_options(inputfiles, winsize, refid, scenegraph_type):
     return winsize, refid
 
 
-def main_demo(tmpdirname, model, device, image_size, server_name, server_port):
-    recon_fun = functools.partial(get_reconstructed_scene, tmpdirname, model, device, image_size)
-    model_from_scene_fun = functools.partial(get_3D_model_from_scene, tmpdirname)
+def main_demo(tmpdirname, model, device, image_size, server_name, server_port, silent=False):
+    recon_fun = functools.partial(get_reconstructed_scene, tmpdirname, model, device, silent, image_size)
+    model_from_scene_fun = functools.partial(get_3D_model_from_scene, tmpdirname, silent)
     with gradio.Blocks(css=""".gradio-container {margin: 0 !important; min-width: 100%};""", title="DUSt3R Demo") as demo:
         # scene state is save so that you can change conf_thr, cam_size... without rerunning the inference
         scene = gradio.State(None)
@@ -284,5 +289,6 @@ if __name__ == '__main__':
     model.to(args.device)
     # dust3r will write the 3D model inside tmpdirname
     with tempfile.TemporaryDirectory(suffix='dust3r_gradio_demo') as tmpdirname:
-        print('Outputing stuff in', tmpdirname)
-        main_demo(tmpdirname, model, args.device, args.image_size, server_name, args.server_port)
+        if not args.silent:
+            print('Outputing stuff in', tmpdirname)
+        main_demo(tmpdirname, model, args.device, args.image_size, server_name, args.server_port, silent=args.silent)

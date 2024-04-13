@@ -33,7 +33,8 @@ class PairViewer (BasePCOptimizer):
         confs = []
         for i in range(self.n_imgs):
             conf = float(self.conf_i[edge_str(i, 1-i)].mean() * self.conf_j[edge_str(i, 1-i)].mean())
-            print(f'  - {conf=:.3} for edge {i}-{1-i}')
+            if self.verbose:
+                print(f'  - {conf=:.3} for edge {i}-{1-i}')
             confs.append(conf)
 
             H, W = self.imshapes[i]
@@ -80,7 +81,8 @@ class PairViewer (BasePCOptimizer):
             p.requires_grad = False
 
     def _set_depthmap(self, idx, depth, force=False):
-        print('_set_depthmap is ignored in PairViewer')
+        if self.verbose:
+            print('_set_depthmap is ignored in PairViewer')
         return
 
     def get_depthmaps(self, raw=False):

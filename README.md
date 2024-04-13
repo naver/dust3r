@@ -1,4 +1,4 @@
-# DUSt3R
+![demo](assets/dust3r.jpg)
 
 Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`  
 [[Project page](https://dust3r.europe.naverlabs.com/)], [[DUSt3R arxiv](https://arxiv.org/abs/2312.14132)]  
@@ -8,7 +8,14 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
 ![High level overview of DUSt3R capabilities](assets/dust3r_archi.jpg)
 
 ```bibtex
-@misc{wang2023dust3r,
+@inproceedings{dust3r_cvpr24,
+      title={DUSt3R: Geometric 3D Vision Made Easy}, 
+      author={Shuzhe Wang and Vincent Leroy and Yohann Cabon and Boris Chidlovskii and Jerome Revaud},
+      booktitle = {CVPR},
+      year = {2024}
+}
+
+@misc{dust3r_arxiv23,
       title={DUSt3R: Geometric 3D Vision Made Easy}, 
       author={Shuzhe Wang and Vincent Leroy and Yohann Cabon and Boris Chidlovskii and Jerome Revaud},
       year={2023},
@@ -19,20 +26,24 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
 ```
 
 ## Table of Contents
-- [DUSt3R](#dust3r)
-  - [Table of Contents](#table-of-contents)
-  - [License](#license)
-  - [Get Started](#get-started)
-    - [Installation](#installation)
-    - [Checkpoints](#checkpoints)
-    - [Interactive demo](#interactive-demo)
-  - [Usage](#usage)
-  - [Training](#training)
-    - [Demo](#demo)
-    - [Our Hyperparameters](#our-hyperparameters)
+
+- [Table of Contents](#table-of-contents)
+- [License](#license)
+- [Get Started](#get-started)
+  - [Installation](#installation)
+  - [Checkpoints](#checkpoints)
+  - [Interactive demo](#interactive-demo)
+  - [Interactive demo with docker](#interactive-demo-with-docker)
+- [Usage](#usage)
+- [Training](#training)
+  - [Demo](#demo)
+  - [Our Hyperparameters](#our-hyperparameters)
 
 ## License
-The code is distributed under the CC BY-NC-SA 4.0 License. See [LICENSE](LICENSE) for more information. 
+
+The code is distributed under the CC BY-NC-SA 4.0 License.
+See [LICENSE](LICENSE) for more information.
+
 ```python
 # Copyright (C) 2024-present Naver Corporation. All rights reserved.
 # Licensed under CC BY-NC-SA 4.0 (non-commercial use only).
@@ -42,7 +53,7 @@ The code is distributed under the CC BY-NC-SA 4.0 License. See [LICENSE](LICENSE
 
 ### Installation
 
-1. Clone DUSt3R
+1. Clone DUSt3R.
 ```bash
 git clone --recursive https://github.com/naver/dust3r
 cd dust3r
@@ -56,10 +67,12 @@ conda create -n dust3r python=3.11 cmake=3.14.0
 conda activate dust3r 
 conda install pytorch torchvision pytorch-cuda=12.1 -c pytorch -c nvidia  # use the correct version of cuda for your system
 pip install -r requirements.txt
+# Optional: you can also install additional packages to:
+# - add support for HEIC images
+pip install -r requirements_optional.txt
 ```
 
-
-3. Optional, compile the cuda kernels for RoPE (as in CroCo v2)
+3. Optional, compile the cuda kernels for RoPE (as in CroCo v2).
 ```bash
 # DUST3R relies on RoPE positional embeddings for which you can compile some cuda kernels for faster runtime.
 cd croco/models/curope/
@@ -67,6 +80,15 @@ python setup.py build_ext --inplace
 cd ../../../
 ```
 
+<<<<<<< HEAD
+=======
+4. Download pre-trained model.
+```bash
+mkdir -p checkpoints/
+wget https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth -P checkpoints/
+```
+
+>>>>>>> upstream/main
 ### Checkpoints
 
 We provide several pre-trained models on Hugging Face:
@@ -80,14 +102,18 @@ We provide several pre-trained models on Hugging Face:
 You can check the hyperparameters we used to train these models in the [section: Our Hyperparameters](#our-hyperparameters)
 
 ### Interactive demo
-In this demo, you should be able run DUSt3R on your machine to reconstruct a scene.  
-First select images that depicts the same scene.  
 
-You can adjust the global alignment schedule and its number of iterations.  
-Note: if you selected one or two images, the global alignment procedure will be skipped (mode=GlobalAlignerMode.PairViewer)  
-Hit "Run" and wait.  
-When the global alignment ends, the reconstruction appears.  
-Use the slider "min_conf_thr" to show or remove low confidence areas.  
+In this demo, you should be able run DUSt3R on your machine to reconstruct a scene.
+First select images that depicts the same scene.
+
+You can adjust the global alignment schedule and its number of iterations.
+
+> [!NOTE]
+> If you selected one or two images, the global alignment procedure will be skipped (mode=GlobalAlignerMode.PairViewer)
+
+Hit "Run" and wait.
+When the global alignment ends, the reconstruction appears.
+Use the slider "min_conf_thr" to show or remove low confidence areas.
 
 ```bash
 python3 demo.py --weights checkpoints/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth
@@ -97,6 +123,34 @@ python3 demo.py --weights checkpoints/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth
 # Use --server_port to change the port, by default it will search for an available port starting at 7860
 # Use --device to use a different device, by default it's "cuda"
 ```
+
+### Interactive demo with docker
+
+To run DUSt3R using Docker, including with NVIDIA CUDA support, follow these instructions:
+
+1. **Install Docker**: If not already installed, download and install `docker` and `docker compose` from the [Docker website](https://www.docker.com/get-started).
+
+2. **Install NVIDIA Docker Toolkit**: For GPU support, install the NVIDIA Docker toolkit from the [Nvidia website](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
+3. **Build the Docker image and run it**: `cd` into the `./docker` directory and run the following commands: 
+
+```bash
+cd docker
+bash run.sh --with-cuda --model-name="DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
+```
+
+Or if you want to run the demo without CUDA support, run the following command:
+
+```bash 
+cd docker
+bash run.sh --model-name="DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth"
+```
+
+By default, `demo.py` is lanched with the option `--local_network`.  
+Visit `http://localhost:7860/` to access the web UI (or replace `localhost` with the machine's name to access it from the network).  
+
+`run.sh` will launch docker-compose using either the [docker-compose-cuda.yml](docker/docker-compose-cuda.yml) or [docker-compose-cpu.ym](docker/docker-compose-cpu.yml) config file, then it starts the demo using [entrypoint.sh](docker/files/entrypoint.sh).
+
 
 ![demo](assets/demo.jpg)
 
@@ -188,13 +242,15 @@ if __name__ == '__main__':
 ![matching example on croco pair](assets/matching.jpg)
 
 ## Training
-In this section, we present propose a short demonstration to get started with training DUSt3R. At the moment, we didn't release the training datasets, so we're going to download and prepare a subset of [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE) and launch the training code on it.
-The demo model will be trained for a few epochs on a very small dataset. It will not be very good. 
+
+In this section, we present a short demonstration to get started with training DUSt3R.
+At the moment, we didn't release the training datasets, so we're going to download and prepare a subset of [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE) and launch the training code on it.
+The demo model will be trained for a few epochs on a very small dataset.
+It will not be very good.
 
 ### Demo
 
 ```bash
-
 # download and prepare the co3d subset
 mkdir -p data/co3d_subset
 cd data/co3d_subset
@@ -219,38 +275,39 @@ torchrun --nproc_per_node=4 train.py \
     --model "AsymmetricCroCo3DStereo(pos_embed='RoPE100', img_size=(224, 224), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
     --train_criterion "ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)" \
     --test_criterion "Regr3D_ScaleShiftInv(L21, gt_scale=True)" \
-    --pretrained checkpoints/CroCo_V2_ViTLarge_BaseDecoder.pth \
+    --pretrained "checkpoints/CroCo_V2_ViTLarge_BaseDecoder.pth" \
     --lr 0.0001 --min_lr 1e-06 --warmup_epochs 1 --epochs 10 --batch_size 16 --accum_iter 1 \
     --save_freq 1 --keep_freq 5 --eval_freq 1 \
-    --output_dir checkpoints/dust3r_demo_224	  
+    --output_dir "checkpoints/dust3r_demo_224"	  
 
 # step 2 - train dust3r for 512 resolution
 torchrun --nproc_per_node=4 train.py \
     --train_dataset "1000 @ Co3d(split='train', ROOT='data/co3d_subset_processed', aug_crop=16, mask_bg='rand', resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter)" \
-    --test_dataset="100 @ Co3d(split='test', ROOT='data/co3d_subset_processed', resolution=(512,384), seed=777)" \
-    --model="AsymmetricCroCo3DStereo(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
+    --test_dataset "100 @ Co3d(split='test', ROOT='data/co3d_subset_processed', resolution=(512,384), seed=777)" \
+    --model "AsymmetricCroCo3DStereo(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
     --train_criterion "ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)" \
     --test_criterion "Regr3D_ScaleShiftInv(L21, gt_scale=True)" \
-    --pretrained='checkpoints/dust3r_demo_224/checkpoint-best.pth' \
-    --lr=0.0001 --min_lr=1e-06 --warmup_epochs 1 --epochs 10 --batch_size 4 --accum_iter 4 \
+    --pretrained "checkpoints/dust3r_demo_224/checkpoint-best.pth" \
+    --lr 0.0001 --min_lr 1e-06 --warmup_epochs 1 --epochs 10 --batch_size 4 --accum_iter 4 \
     --save_freq 1 --keep_freq 5 --eval_freq 1 \
-    --output_dir checkpoints/dust3r_demo_512
+    --output_dir "checkpoints/dust3r_demo_512"
 
 # step 3 - train dust3r for 512 resolution with dpt
 torchrun --nproc_per_node=4 train.py \
     --train_dataset "1000 @ Co3d(split='train', ROOT='data/co3d_subset_processed', aug_crop=16, mask_bg='rand', resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter)" \
-    --test_dataset="100 @ Co3d(split='test', ROOT='data/co3d_subset_processed', resolution=(512,384), seed=777)" \
-    --model="AsymmetricCroCo3DStereo(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='dpt', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
+    --test_dataset "100 @ Co3d(split='test', ROOT='data/co3d_subset_processed', resolution=(512,384), seed=777)" \
+    --model "AsymmetricCroCo3DStereo(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='dpt', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
     --train_criterion "ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)" \
     --test_criterion "Regr3D_ScaleShiftInv(L21, gt_scale=True)" \
-    --pretrained='checkpoints/dust3r_demo_512/checkpoint-best.pth' \
-    --lr=0.0001 --min_lr=1e-06 --warmup_epochs 1 --epochs 10 --batch_size 2 --accum_iter 8 \
+    --pretrained "checkpoints/dust3r_demo_512/checkpoint-best.pth" \
+    --lr 0.0001 --min_lr 1e-06 --warmup_epochs 1 --epochs 10 --batch_size 2 --accum_iter 8 \
     --save_freq 1 --keep_freq 5 --eval_freq 1 \
-    --output_dir checkpoints/dust3r_demo_512dpt
+    --output_dir "checkpoints/dust3r_demo_512dpt"
 
 ```
 
 ### Our Hyperparameters
+
 We didn't release the training datasets, but here are the commands we used for training our models:
 
 ```bash
@@ -260,35 +317,35 @@ torchrun --nproc_per_node 4 train.py \
     --train_dataset=" + 100_000 @ Habitat512(1_000_000, split='train', aug_crop=16, resolution=224, transform=ColorJitter) + 100_000 @ BlendedMVS(split='train', aug_crop=16, resolution=224, transform=ColorJitter) + 100_000 @ MegaDepthDense(split='train', aug_crop=16, resolution=224, transform=ColorJitter) + 100_000 @ ARKitScenes(aug_crop=256, resolution=224, transform=ColorJitter) + 100_000 @ Co3d_v3(split='train', aug_crop=16, mask_bg='rand', resolution=224, transform=ColorJitter) + 100_000 @ StaticThings3D(aug_crop=256, mask_bg='rand', resolution=224, transform=ColorJitter) + 100_000 @ ScanNetpp(split='train', aug_crop=256, resolution=224, transform=ColorJitter) + 100_000 @ Waymo(aug_crop=128, resolution=224, transform=ColorJitter) " \
     --test_dataset=" Habitat512(1_000, split='val', resolution=224, seed=777) + 1_000 @ BlendedMVS(split='val', resolution=224, seed=777) + 1_000 @ MegaDepthDense(split='val', resolution=224, seed=777) + 1_000 @ Co3d_v3(split='test', mask_bg='rand', resolution=224, seed=777) " \
     --train_criterion="ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)" \
-    --test_criterion='Regr3D_ScaleShiftInv(L21, gt_scale=True)' \
+    --test_criterion="Regr3D_ScaleShiftInv(L21, gt_scale=True)" \
     --model="AsymmetricCroCo3DStereo(pos_embed='RoPE100', img_size=(224, 224), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
     --pretrained="checkpoints/CroCo_V2_ViTLarge_BaseDecoder.pth" \
     --lr=0.0001 --min_lr=1e-06 --warmup_epochs=10 --epochs=100 --batch_size=16 --accum_iter=1 \
     --save_freq=5 --keep_freq=10 --eval_freq=1 \
-    --output_dir='checkpoints/dust3r_224'
+    --output_dir="checkpoints/dust3r_224"
 
 # 512 linear
 torchrun --nproc_per_node 8 train.py \
     --train_dataset=" + 10_000 @ Habitat512(1_000_000, split='train', aug_crop=16, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ BlendedMVS(split='train', aug_crop=16, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ MegaDepthDense(split='train', aug_crop=16, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ ARKitScenes(aug_crop=256, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ Co3d_v3(split='train', aug_crop=16, mask_bg='rand', resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ StaticThings3D(aug_crop=256, mask_bg='rand', resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ ScanNetpp(split='train', aug_crop=256, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ Waymo(aug_crop=128, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) " \
     --test_dataset=" Habitat512(1_000, split='val', resolution=(512,384), seed=777) + 1_000 @ BlendedMVS(split='val', resolution=(512,384), seed=777) + 1_000 @ MegaDepthDense(split='val', resolution=(512,336), seed=777) + 1_000 @ Co3d_v3(split='test', resolution=(512,384), seed=777) " \
     --train_criterion="ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)" \
-    --test_criterion='Regr3D_ScaleShiftInv(L21, gt_scale=True)' \
+    --test_criterion="Regr3D_ScaleShiftInv(L21, gt_scale=True)" \
     --model="AsymmetricCroCo3DStereo(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
-    --pretrained='checkpoints/dust3r_224/checkpoint-best.pth' \
+    --pretrained="checkpoints/dust3r_224/checkpoint-best.pth" \
     --lr=0.0001 --min_lr=1e-06 --warmup_epochs=20 --epochs=200 --batch_size=4 --accum_iter=2 \
     --save_freq=10 --keep_freq=10 --eval_freq=1 --print_freq=10 \
-    --output_dir='checkpoints/dust3r_512'
+    --output_dir="checkpoints/dust3r_512"
 
 # 512 dpt
 torchrun --nproc_per_node 8 train.py \
     --train_dataset=" + 10_000 @ Habitat512(1_000_000, split='train', aug_crop=16, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ BlendedMVS(split='train', aug_crop=16, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ MegaDepthDense(split='train', aug_crop=16, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ ARKitScenes(aug_crop=256, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ Co3d_v3(split='train', aug_crop=16, mask_bg='rand', resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ StaticThings3D(aug_crop=256, mask_bg='rand', resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ ScanNetpp(split='train', aug_crop=256, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) + 10_000 @ Waymo(aug_crop=128, resolution=[(512, 384), (512, 336), (512, 288), (512, 256), (512, 160)], transform=ColorJitter) " \
     --test_dataset=" Habitat512(1_000, split='val', resolution=(512,384), seed=777) + 1_000 @ BlendedMVS(split='val', resolution=(512,384), seed=777) + 1_000 @ MegaDepthDense(split='val', resolution=(512,336), seed=777) + 1_000 @ Co3d_v3(split='test', resolution=(512,384), seed=777) " \
     --train_criterion="ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)" \
-    --test_criterion='Regr3D_ScaleShiftInv(L21, gt_scale=True)' \
+    --test_criterion="Regr3D_ScaleShiftInv(L21, gt_scale=True)" \
     --model="AsymmetricCroCo3DStereo(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='dpt', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
-    --pretrained='checkpoints/dust3r_512/checkpoint-best.pth' \
+    --pretrained="checkpoints/dust3r_512/checkpoint-best.pth" \
     --lr=0.0001 --min_lr=1e-06 --warmup_epochs=15 --epochs=90 --batch_size=2 --accum_iter=4 \
     --save_freq=5 --keep_freq=10 --eval_freq=1 --print_freq=10 \
-    --output_dir='checkpoints/dust3r_512dpt'
+    --output_dir="checkpoints/dust3r_512dpt"
 
 ```
