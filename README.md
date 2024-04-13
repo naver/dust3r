@@ -80,15 +80,6 @@ python setup.py build_ext --inplace
 cd ../../../
 ```
 
-<<<<<<< HEAD
-=======
-4. Download pre-trained model.
-```bash
-mkdir -p checkpoints/
-wget https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth -P checkpoints/
-```
-
->>>>>>> upstream/main
 ### Checkpoints
 
 We provide several pre-trained models on Hugging Face:
