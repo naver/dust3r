@@ -7,28 +7,8 @@
 import tqdm
 import torch
 from dust3r.utils.device import to_cpu, collate_with_cat
-from dust3r.model import AsymmetricCroCo3DStereo, inf  # noqa: F401, needed when loading the model
 from dust3r.utils.misc import invalid_to_nans
 from dust3r.utils.geometry import depthmap_to_pts3d, geotrf
-
-
-def load_model(model_path, device, verbose=True):
-    if verbose:
-        print('... loading model from', model_path)
-    ckpt = torch.load(model_path, map_location='cpu')
-    args = ckpt['args'].model.replace("ManyAR_PatchEmbed", "PatchEmbedDust3R")
-    if 'landscape_only' not in args:
-        args = args[:-1] + ', landscape_only=False)'
-    else:
-        args = args.replace(" ", "").replace('landscape_only=True', 'landscape_only=False')
-    assert "landscape_only=False" in args
-    if verbose:
-        print(f"instantiating : {args}")
-    net = eval(args)
-    s = net.load_state_dict(ckpt['model'], strict=False)
-    if verbose:
-        print(s)
-    return net.to(device)
 
 
 def _interleave_imgs(img1, img2):
