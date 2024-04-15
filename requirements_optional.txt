@@ -1,2 +1,3 @@
 pillow-heif  # add heif/heic image support
-huggingface-hub[torch]
+huggingface-hub>=0.22
+safetensors
