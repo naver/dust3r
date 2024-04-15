@@ -77,7 +77,7 @@ class AsymmetricCroCo3DStereo (CroCoNet, PyTorchModelHubMixin):
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, **kw):
         if os.path.isfile(pretrained_model_name_or_path):
-            return dust3r.inference.load_model(pretrained_model_name_or_path, device='cpu')
+            return load_model(pretrained_model_name_or_path, device='cpu')
         else:
             return super(AsymmetricCroCo3DStereo, cls).from_pretrained(pretrained_model_name_or_path, **kw)
 
