@@ -69,7 +69,6 @@ conda install pytorch torchvision pytorch-cuda=12.1 -c pytorch -c nvidia  # use 
 pip install -r requirements.txt
 # Optional: you can also install additional packages to:
 # - add support for HEIC images
-# - add huggingface_hub integration
 pip install -r requirements_optional.txt
 ```
 
@@ -85,16 +84,15 @@ cd ../../../
 
 You can obtain the checkpoints by two ways:
 
-1) We provide an optional huggingface_hub integration. For this to work, make sure you installed the optional dependencies above.
-When installed, you don't have to manually download the checkpoints.
+1) You can use our huggingface_hub integration: the models will be downloaded automatically.
 
 2) Otherwise, We provide several pre-trained models:
 
 | Modelname   | Training resolutions | Head | Encoder | Decoder |
 |-------------|----------------------|------|---------|---------|
-| [`DUSt3R_ViTLarge_BaseDecoder_224_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_224_linear.pth) | 224x224 | Linear | ViT-L | ViT-B |
-| [`DUSt3R_ViTLarge_BaseDecoder_512_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_linear.pth)   | 512x384, 512x336, 512x288, 512x256, 512x160 | Linear | ViT-L | ViT-B |
-| [`DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth) | 512x384, 512x336, 512x288, 512x256, 512x160 | DPT | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_224_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_224_linear.pth)[hf](https://huggingface.co/naver/DUSt3R_ViTLarge_BaseDecoder_224_linear) | 224x224 | Linear | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_512_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_linear.pth)[hf](https://huggingface.co/naver/DUSt3R_ViTLarge_BaseDecoder_512_linear)   | 512x384, 512x336, 512x288, 512x256, 512x160 | Linear | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth)[hf](https://huggingface.co/naver/DUSt3R_ViTLarge_BaseDecoder_512_dpt) | 512x384, 512x336, 512x288, 512x256, 512x160 | DPT | ViT-L | ViT-B |
 
 You can check the hyperparameters we used to train these models in the [section: Our Hyperparameters](#our-hyperparameters)
 
@@ -121,7 +119,6 @@ Use the slider "min_conf_thr" to show or remove low confidence areas.
 ```bash
 python3 demo.py --model_name DUSt3R_ViTLarge_BaseDecoder_512_dpt
 
-# if huggingface_hub integration is not installed, when using --model-name demo.py will look for the checkpoint in the checkpoints directory
 # Use --weights to load a checkpoint from a local file, eg --weights checkpoints/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth
 # Use --image_size to select the correct resolution for the selected checkpoint. 512 (default) or 224
 # Use --local_network to make it accessible on the local network, or --server_name to specify the url manually
@@ -163,7 +160,7 @@ Visit `http://localhost:7860/` to access the web UI (or replace `localhost` with
 
 ```python
 from dust3r.inference import inference
-from dust3r.model import AsymmetricCroCo3DStereo, has_hf_integration
+from dust3r.model import AsymmetricCroCo3DStereo
 from dust3r.utils.image import load_images
 from dust3r.image_pairs import make_pairs
 from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
@@ -175,12 +172,9 @@ if __name__ == '__main__':
     lr = 0.01
     niter = 300
 
-    model_name = "DUSt3R_ViTLarge_BaseDecoder_512_dpt"
-    if has_hf_integration:
-        model_name = "naver/" + args.model_name
-    else:
-        model_name = "checkpoints/" + args.model_name + ".pth"  # load a local checkpoint
-    model = AsymmetricCroCo3DStereo.from_pretrained(model_name, device).to(device)
+    model_name = "naver/DUSt3R_ViTLarge_BaseDecoder_512_dpt"
+    # you can put the path to a local checkpoint in model_name if needed
+    model = AsymmetricCroCo3DStereo.from_pretrained(model_name).to(device)
     # load_images can take a list of images or a directory
     images = load_images(['croco/assets/Chateau1.png', 'croco/assets/Chateau2.png'], size=512)
     pairs = make_pairs(images, scene_graph='complete', prefilter=None, symmetrize=True)

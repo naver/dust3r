@@ -7,6 +7,7 @@
 from copy import deepcopy
 import torch
 import os
+from huggingface_hub import PyTorchModelHubMixin
 
 from .utils.misc import fill_default_args, freeze_all_params, is_symmetrized, interleave, transpose_to_landscape
 from .heads import head_factory
@@ -14,24 +15,6 @@ from dust3r.patch_embed import get_patch_embed
 
 import dust3r.utils.path_to_croco  # noqa: F401
 from models.croco import CroCoNet  # noqa
-
-try:
-    from huggingface_hub import PyTorchModelHubMixin  # noqa
-    has_hf_integration = True
-except Exception as e:
-    print('Warning, huggingface_hub integration is disabled')
-    has_hf_integration = False
-
-    class PyTorchModelHubMixin:
-        def __init_subclass__(cls, *args, **kwargs) -> None:
-            return super().__init_subclass__()  # ignore lib metadata
-
-        def from_pretrained(pretrained_model_name_or_path, **kw):
-            raise NotImplementedError((f'Either {pretrained_model_name_or_path} is not a valid file or '
-                                       'you are missing the optional huggingface_hub dependency'))
-
-        def push_to_hub(*args, **kw):
-            raise NotImplementedError('Install optional dependency huggingface_hub')
 
 inf = float('inf')
 
@@ -56,12 +39,12 @@ def load_model(model_path, device, verbose=True):
 
 
 class AsymmetricCroCo3DStereo (
-        CroCoNet,
-        PyTorchModelHubMixin,
-        library_name="dust3r",
-        repo_url="https://github.com/naver/dust3r",
-        tags=["image-to-3d"],
-    ):
+    CroCoNet,
+    PyTorchModelHubMixin,
+    library_name="dust3r",
+    repo_url="https://github.com/naver/dust3r",
+    tags=["image-to-3d"],
+):
     """ Two siamese encoders, followed by two decoders.
     The goal is to output 3d points directly, both images in view1's frame
     (hence the asymmetry).   

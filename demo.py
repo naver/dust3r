@@ -18,7 +18,7 @@ import copy
 from scipy.spatial.transform import Rotation
 
 from dust3r.inference import inference
-from dust3r.model import AsymmetricCroCo3DStereo, has_hf_integration
+from dust3r.model import AsymmetricCroCo3DStereo
 from dust3r.image_pairs import make_pairs
 from dust3r.utils.image import load_images, rgb
 from dust3r.utils.device import to_numpy
@@ -290,10 +290,7 @@ if __name__ == '__main__':
     if args.weights is not None:
         weights_path = args.weights
     else:
-        if not has_hf_integration:
-            weights_path = "checkpoints/" + args.model_name + ".pth"
-        else:
-            weights_path = "naver/" + args.model_name
+        weights_path = "naver/" + args.model_name
     model = AsymmetricCroCo3DStereo.from_pretrained(weights_path).to(args.device)
 
     # dust3r will write the 3D model inside tmpdirname
