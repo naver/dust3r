@@ -119,7 +119,7 @@ When the global alignment ends, the reconstruction appears.
 Use the slider "min_conf_thr" to show or remove low confidence areas.
 
 ```bash
-python3 demo.py --model-name DUSt3R_ViTLarge_BaseDecoder_512_dpt
+python3 demo.py --model_name DUSt3R_ViTLarge_BaseDecoder_512_dpt
 
 # if huggingface_hub integration is not installed, when using --model-name demo.py will look for the checkpoint in the checkpoints directory
 # Use --weights to load a checkpoint from a local file, eg --weights checkpoints/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth
