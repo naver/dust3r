@@ -23,6 +23,9 @@ except Exception as e:
     has_hf_integration = False
 
     class PyTorchModelHubMixin:
+        def __init_subclass__(cls, *args, **kwargs) -> None:
+            return super().__init_subclass__()  # ignore lib metadata
+
         def from_pretrained(pretrained_model_name_or_path, **kw):
             raise NotImplementedError((f'Either {pretrained_model_name_or_path} is not a valid file or '
                                        'you are missing the optional huggingface_hub dependency'))
@@ -52,7 +55,13 @@ def load_model(model_path, device, verbose=True):
     return net.to(device)
 
 
-class AsymmetricCroCo3DStereo (CroCoNet, PyTorchModelHubMixin):
+class AsymmetricCroCo3DStereo (
+        CroCoNet,
+        PyTorchModelHubMixin,
+        library_name="dust3r",
+        repo_url="https://github.com/naver/dust3r",
+        tags=["image-to-3d"],
+    ):
     """ Two siamese encoders, followed by two decoders.
     The goal is to output 3d points directly, both images in view1's frame
     (hence the asymmetry).   
