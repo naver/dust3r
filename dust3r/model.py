@@ -21,9 +21,11 @@ try:
 except Exception as e:
     print('Warning, huggingface_hub integration is disabled')
     has_hf_integration = False
+
     class PyTorchModelHubMixin:
         def from_pretrained(pretrained_model_name_or_path, **kw):
-            raise NotImplementedError('Install optional dependency huggingface_hub')
+            raise NotImplementedError((f'Either {pretrained_model_name_or_path} is not a valid file or '
+                                       'you are missing the optional huggingface_hub dependency'))
 
         def push_to_hub(*args, **kw):
             raise NotImplementedError('Install optional dependency huggingface_hub')
