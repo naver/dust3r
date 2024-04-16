@@ -17,7 +17,8 @@ import trimesh
 import copy
 from scipy.spatial.transform import Rotation
 
-from dust3r.inference import inference, load_model
+from dust3r.inference import inference
+from dust3r.model import AsymmetricCroCo3DStereo, has_hf_integration
 from dust3r.image_pairs import make_pairs
 from dust3r.utils.image import load_images, rgb
 from dust3r.utils.device import to_numpy
@@ -41,7 +42,12 @@ def get_args_parser():
     parser.add_argument("--server_port", type=int, help=("will start gradio app on this port (if available). "
                                                          "If None, will search for an available port starting at 7860."),
                         default=None)
-    parser.add_argument("--weights", type=str, required=True, help="path to the model weights")
+    parser_weights = parser.add_mutually_exclusive_group(required=True)
+    parser_weights.add_argument("--weights", type=str, help="path to the model weights", default=None)
+    parser_weights.add_argument("--model_name", type=str, help="name of the model weights",
+                                choices=["DUSt3R_ViTLarge_BaseDecoder_512_dpt",
+                                         "DUSt3R_ViTLarge_BaseDecoder_512_linear",
+                                         "DUSt3R_ViTLarge_BaseDecoder_224_linear"])
     parser.add_argument("--device", type=str, default='cuda', help="pytorch device")
     parser.add_argument("--tmp_dir", type=str, default=None, help="value for tempfile.tempdir")
     parser.add_argument("--silent", action='store_true', default=False,
@@ -281,7 +287,15 @@ if __name__ == '__main__':
     else:
         server_name = '0.0.0.0' if args.local_network else '127.0.0.1'
 
-    model = load_model(args.weights, args.device, verbose=not args.silent)
+    if args.weights is not None:
+        weights_path = args.weights
+    else:
+        if not has_hf_integration:
+            weights_path = "checkpoints/" + args.model_name + ".pth"
+        else:
+            weights_path = "naver/" + args.model_name
+    model = AsymmetricCroCo3DStereo.from_pretrained(weights_path).to(args.device)
+
     # dust3r will write the 3D model inside tmpdirname
     with tempfile.TemporaryDirectory(suffix='dust3r_gradio_demo') as tmpdirname:
         if not args.silent:

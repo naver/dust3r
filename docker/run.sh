@@ -47,8 +47,8 @@ for arg in "$@"; do
         --with-cuda)
             with_cuda=1
             ;;
-        --model-name=*)
-            model_name="${arg#*=}"
+        --model_name=*)
+            model_name="${arg#*=}.pth"
             ;;
         *)
             echo "Unknown parameter passed: $arg"

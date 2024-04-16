@@ -6,6 +6,7 @@
 # --------------------------------------------------------
 from copy import deepcopy
 import torch
+import os
 
 from .utils.misc import fill_default_args, freeze_all_params, is_symmetrized, interleave, transpose_to_landscape
 from .heads import head_factory
@@ -13,10 +14,45 @@ from dust3r.patch_embed import get_patch_embed
 
 import dust3r.utils.path_to_croco  # noqa: F401
 from models.croco import CroCoNet  # noqa
+
+try:
+    from huggingface_hub import PyTorchModelHubMixin  # noqa
+    has_hf_integration = True
+except Exception as e:
+    print('Warning, huggingface_hub integration is disabled')
+    has_hf_integration = False
+
+    class PyTorchModelHubMixin:
+        def from_pretrained(pretrained_model_name_or_path, **kw):
+            raise NotImplementedError((f'Either {pretrained_model_name_or_path} is not a valid file or '
+                                       'you are missing the optional huggingface_hub dependency'))
+
+        def push_to_hub(*args, **kw):
+            raise NotImplementedError('Install optional dependency huggingface_hub')
+
 inf = float('inf')
 
 
-class AsymmetricCroCo3DStereo (CroCoNet):
+def load_model(model_path, device, verbose=True):
+    if verbose:
+        print('... loading model from', model_path)
+    ckpt = torch.load(model_path, map_location='cpu')
+    args = ckpt['args'].model.replace("ManyAR_PatchEmbed", "PatchEmbedDust3R")
+    if 'landscape_only' not in args:
+        args = args[:-1] + ', landscape_only=False)'
+    else:
+        args = args.replace(" ", "").replace('landscape_only=True', 'landscape_only=False')
+    assert "landscape_only=False" in args
+    if verbose:
+        print(f"instantiating : {args}")
+    net = eval(args)
+    s = net.load_state_dict(ckpt['model'], strict=False)
+    if verbose:
+        print(s)
+    return net.to(device)
+
+
+class AsymmetricCroCo3DStereo (CroCoNet, PyTorchModelHubMixin):
     """ Two siamese encoders, followed by two decoders.
     The goal is to output 3d points directly, both images in view1's frame
     (hence the asymmetry).   
@@ -39,6 +75,13 @@ class AsymmetricCroCo3DStereo (CroCoNet):
         self.dec_blocks2 = deepcopy(self.dec_blocks)
         self.set_downstream_head(output_mode, head_type, landscape_only, depth_mode, conf_mode, **croco_kwargs)
         self.set_freeze(freeze)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, **kw):
+        if os.path.isfile(pretrained_model_name_or_path):
+            return load_model(pretrained_model_name_or_path, device='cpu')
+        else:
+            return super(AsymmetricCroCo3DStereo, cls).from_pretrained(pretrained_model_name_or_path, **kw)
 
     def _set_patch_embed(self, img_size=224, patch_size=16, enc_embed_dim=768):
         self.patch_embed = get_patch_embed(self.patch_embed_cls, img_size, patch_size, enc_embed_dim)
