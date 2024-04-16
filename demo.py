@@ -44,7 +44,7 @@ def get_args_parser():
                         default=None)
     parser_weights = parser.add_mutually_exclusive_group(required=True)
     parser_weights.add_argument("--weights", type=str, help="path to the model weights", default=None)
-    parser_weights.add_argument("--model_name", type=str,help="name of the model weights",
+    parser_weights.add_argument("--model_name", type=str, help="name of the model weights",
                                 choices=["DUSt3R_ViTLarge_BaseDecoder_512_dpt",
                                          "DUSt3R_ViTLarge_BaseDecoder_512_linear",
                                          "DUSt3R_ViTLarge_BaseDecoder_224_linear"])
