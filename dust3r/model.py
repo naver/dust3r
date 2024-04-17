@@ -7,7 +7,8 @@
 from copy import deepcopy
 import torch
 import os
-from huggingface_hub import PyTorchModelHubMixin
+from packaging import version
+import huggingface_hub
 
 from .utils.misc import fill_default_args, freeze_all_params, is_symmetrized, interleave, transpose_to_landscape
 from .heads import head_factory
@@ -18,6 +19,8 @@ from models.croco import CroCoNet  # noqa
 
 inf = float('inf')
 
+hf_version_number = huggingface_hub.__version__
+assert version.parse(hf_version_number) >= version.parse("0.22.0"), "Outdated huggingface_hub version, please reinstall requirements.txt"
 
 def load_model(model_path, device, verbose=True):
     if verbose:
@@ -40,7 +43,7 @@ def load_model(model_path, device, verbose=True):
 
 class AsymmetricCroCo3DStereo (
     CroCoNet,
-    PyTorchModelHubMixin,
+    huggingface_hub.PyTorchModelHubMixin,
     library_name="dust3r",
     repo_url="https://github.com/naver/dust3r",
     tags=["image-to-3d"],
