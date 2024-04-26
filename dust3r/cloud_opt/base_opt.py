@@ -50,6 +50,7 @@ class BasePCOptimizer (nn.Module):
                          pw_break=20,
                          rand_pose=torch.randn,
                          iterationsCount=None,
+                         same_focals=False,
                          verbose=True):
         super().__init__()
         if not isinstance(view1['idx'], list):
@@ -60,6 +61,7 @@ class BasePCOptimizer (nn.Module):
         self.is_symmetrized = set(self.edges) == {(j, i) for i, j in self.edges}
         self.dist = ALL_DISTS[dist]
         self.verbose = verbose
+        self.same_focals = same_focals
 
         self.n_imgs = self._check_edges()
 

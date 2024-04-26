@@ -113,8 +113,10 @@ def init_from_pts3d(self, pts3d, im_focals, im_poses):
             depth = geotrf(inv(cam2world), pts3d[i])[..., 2]
             self._set_depthmap(i, depth)
             self._set_pose(self.im_poses, i, cam2world)
-            if im_focals[i] is not None:
+            if im_focals[i] is not None and not self.same_focals:
                 self._set_focal(i, im_focals[i])
+        if self.same_focals:
+            self._set_focal(0, torch.tensor(im_focals).mean()) # initialize with mean focal
 
     if self.verbose:
         print(' init loss =', float(self()))

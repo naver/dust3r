@@ -28,8 +28,11 @@ class PointCloudOptimizer(BasePCOptimizer):
         # adding thing to optimize
         self.im_depthmaps = nn.ParameterList(torch.randn(H, W)/10-3 for H, W in self.imshapes)  # log(depth)
         self.im_poses = nn.ParameterList(self.rand_pose(self.POSE_DIM) for _ in range(self.n_imgs))  # camera poses
-        self.im_focals = nn.ParameterList(torch.FloatTensor(
-            [self.focal_break*np.log(max(H, W))]) for H, W in self.imshapes)  # camera intrinsics
+        if self.same_focals:
+            self.im_focals = nn.Parameter(torch.FloatTensor([[torch.tensor(self.focal_break)*np.log(max(self.imshapes[0]))]])) # initialize with H x W of first image
+        else:
+            self.im_focals = nn.ParameterList(torch.FloatTensor(
+                [self.focal_break*np.log(max(H, W))]) for H, W in self.imshapes)  # camera intrinsics
         self.im_pp = nn.ParameterList(torch.zeros((2,)) for _ in range(self.n_imgs))  # camera intrinsics
         self.im_pp.requires_grad_(optimize_pp)
 
@@ -175,7 +178,7 @@ class PointCloudOptimizer(BasePCOptimizer):
         depth = self.get_depthmaps(raw=True)
 
         # get pointmaps in camera frame
-        rel_ptmaps = _fast_depthmap_to_pts3d(depth, self._grid, focals, pp=pp)
+        rel_ptmaps = _fast_depthmap_to_pts3d(depth, self._grid, focals, pp=pp, same_focals=self.same_focals)
         # project to world frame
         return geotrf(im_poses, rel_ptmaps)
 
@@ -201,10 +204,11 @@ class PointCloudOptimizer(BasePCOptimizer):
         return li + lj
 
 
-def _fast_depthmap_to_pts3d(depth, pixel_grid, focal, pp):
+def _fast_depthmap_to_pts3d(depth, pixel_grid, focal, pp, same_focals=False):
     pp = pp.unsqueeze(1)
     focal = focal.unsqueeze(1)
-    assert focal.shape == (len(depth), 1, 1)
+    if not same_focals:
+        assert focal.shape == (len(depth), 1, 1)
     assert pp.shape == (len(depth), 1, 2)
     assert pixel_grid.shape == depth.shape + (2,)
     depth = depth.unsqueeze(-1)
