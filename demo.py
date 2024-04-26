@@ -174,6 +174,8 @@ def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist,
     confs_max = max([d.max() for d in confs])
     confs = [cmap(d/confs_max) for d in confs]
 
+    print(scene.get_focals())
+
     imgs = []
     for i in range(len(rgbimg)):
         imgs.append(rgbimg[i])

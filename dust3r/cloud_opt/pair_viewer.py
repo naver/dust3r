@@ -74,7 +74,10 @@ class PairViewer (BasePCOptimizer):
             self.depth = [geotrf(inv(rel_poses[0]), self.pred_j['1_0'])[..., 2], self.pred_i['1_0'][..., 2]]
 
         self.im_poses = nn.Parameter(torch.stack(self.im_poses, dim=0), requires_grad=False)
-        self.focals = nn.Parameter(torch.tensor(self.focals), requires_grad=False)
+        if self.same_focals:
+            self.focals = nn.Parameter(torch.tensor([torch.tensor(self.focals).mean()]), requires_grad = False)
+        else:
+            self.focals = nn.Parameter(torch.tensor(self.focals), requires_grad=False)
         self.pp = nn.Parameter(torch.stack(self.pp, dim=0), requires_grad=False)
         self.depth = nn.ParameterList(self.depth)
         for p in self.parameters():
@@ -116,9 +119,15 @@ class PairViewer (BasePCOptimizer):
 
     def depth_to_pts3d(self):
         pts3d = []
-        for d, intrinsics, im_pose in zip(self.depth, self.get_intrinsics(), self.get_im_poses()):
+        
+        for i, (d, im_pose) in enumerate(zip(self.depth, self.get_im_poses())):
+                                         
+            if self.same_focals:
+                intrinsic = self.get_intrinsics()[0]
+            else:
+                intrinsic = self.get_intrinsics()[i]
             pts, _ = depthmap_to_absolute_camera_coordinates(d.cpu().numpy(),
-                                                             intrinsics.cpu().numpy(),
+                                                             intrinsic.cpu().numpy(),
                                                              im_pose.cpu().numpy())
             pts3d.append(torch.from_numpy(pts).to(device=self.device))
         return pts3d
