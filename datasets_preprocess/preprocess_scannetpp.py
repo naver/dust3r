@@ -12,6 +12,7 @@ import argparse
 import os.path as osp
 import re
 from tqdm import tqdm
+import json
 from scipy.spatial.transform import Rotation
 import pyrender
 import trimesh
@@ -185,7 +186,9 @@ def process_scenes(root, pairsdir, output_dir, target_resolution):
     znear = 0.05
     zfar = 20.0
 
-    scenes = os.listdir(pairsdir)
+    listfile = osp.join(pairsdir, 'scene_list.json')
+    with open(listfile, 'r') as f:
+        scenes = json.load(f)
 
     # for each of these, we will select some dslr images and some iphone images
     # we will undistort them and render their depth
