@@ -254,7 +254,7 @@ In this section, we present a short demonstration to get started with training D
 ### Datasets
 At this moment, we have added three of the training datasets:
   - [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE)
-  - [ARKitScenes](https://github.com/apple/ARKitScenes) - [non-commercial](https://github.com/apple/ARKitScenes/blob/main/LICENSE)
+  - [ARKitScenes](https://github.com/apple/ARKitScenes) - [Creative Commons Attribution-NonCommercial-ShareAlike 4.0](https://github.com/apple/ARKitScenes/tree/main?tab=readme-ov-file#license)
   - [ScanNet++](https://kaldir.vc.in.tum.de/scannetpp/) - [non-commercial research and educational purposes](https://kaldir.vc.in.tum.de/scannetpp/static/scannetpp-terms-of-use.pdf)
 
 For each dataset, we provide a preprocessing script in the `datasets_preprocess` directory and an archive containing the list of pairs for some of them.

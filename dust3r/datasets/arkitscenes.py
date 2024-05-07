@@ -3,7 +3,7 @@
 #
 # --------------------------------------------------------
 # Dataloader for preprocessed arkitscenes
-# dataset at https://github.com/apple/ARKitScenes - non-commercial - https://github.com/apple/ARKitScenes/blob/main/LICENSE
+# dataset at https://github.com/apple/ARKitScenes - Creative Commons Attribution-NonCommercial-ShareAlike 4.0 https://github.com/apple/ARKitScenes/tree/main?tab=readme-ov-file#license
 # See datasets_preprocess/preprocess_arkitscenes.py
 # --------------------------------------------------------
 import os.path as osp
