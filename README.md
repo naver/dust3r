@@ -36,6 +36,7 @@ Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`
   - [Interactive demo with docker](#interactive-demo-with-docker)
 - [Usage](#usage)
 - [Training](#training)
+  - [Datasets](#datasets)
   - [Demo](#demo)
   - [Our Hyperparameters](#our-hyperparameters)
 
@@ -69,6 +70,7 @@ conda install pytorch torchvision pytorch-cuda=12.1 -c pytorch -c nvidia  # use 
 pip install -r requirements.txt
 # Optional: you can also install additional packages to:
 # - add support for HEIC images
+# - add pyrender, used to render depthmap in some datasets preprocessing
 pip install -r requirements_optional.txt
 ```
 
@@ -248,11 +250,26 @@ if __name__ == '__main__':
 ## Training
 
 In this section, we present a short demonstration to get started with training DUSt3R.
-At the moment, we didn't release the training datasets, so we're going to download and prepare a subset of [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE) and launch the training code on it.
-The demo model will be trained for a few epochs on a very small dataset.
-It will not be very good.
+
+### Datasets
+At this moment, we have added three of the training datasets:
+  - [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE)
+  - [ARKitScenes](https://github.com/apple/ARKitScenes) - [non-commercial](https://github.com/apple/ARKitScenes/blob/main/LICENSE)
+  - [ScanNet++](https://kaldir.vc.in.tum.de/scannetpp/) - [non-commercial research and educational purposes](https://kaldir.vc.in.tum.de/scannetpp/static/scannetpp-terms-of-use.pdf)
+
+For each dataset, we provide a preprocessing script in the `datasets_preprocess` directory and an archive containing the list of pairs for some of them.
+You have to download the datasets yourself from their official sources, our list of pairs, and run the preprocessing script.
+
+TODO link to ARKitScenes pairs
+TODO link to ScanNet++ pairs
+
+> [!NOTE]
+> They are not strictly equivalent to what was used to train DUSt3R, but they should be close enough.
 
 ### Demo
+For this training demo, we're going to download and prepare a subset of [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE) and launch the training code on it.
+The demo model will be trained for a few epochs on a very small dataset.
+It will not be very good.
 
 ```bash
 # download and prepare the co3d subset

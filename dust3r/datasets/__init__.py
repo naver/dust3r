@@ -3,6 +3,8 @@
 from .utils.transforms import *
 from .base.batched_sampler import BatchedRandomSampler  # noqa: F401
 from .co3d import Co3d  # noqa: F401
+from .arkitscenes import ARKitScenes  # noqa: F401
+from .scannetpp import ScanNetpp  # noqa: F401
 
 
 def get_data_loader(dataset, batch_size, num_workers=8, shuffle=True, drop_last=True, pin_mem=True):
