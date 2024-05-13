@@ -261,8 +261,8 @@ For each dataset, we provide a preprocessing script in the `datasets_preprocess`
 You have to download the datasets yourself from their official sources, our list of pairs, and run the preprocessing script.
 
 Links:
-[ARKitScenes pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/arkitscenes_pairs.zip)
-[ScanNet++ pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/scannetpp_pairs.zip)
+[ARKitScenes pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/arkitscenes_pairs.zip)  
+[ScanNet++ pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/scannetpp_pairs.zip)  
 
 > [!NOTE]
 > They are not strictly equivalent to what was used to train DUSt3R, but they should be close enough.
