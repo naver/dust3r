@@ -260,7 +260,8 @@ At this moment, we have added three of the training datasets:
 For each dataset, we provide a preprocessing script in the `datasets_preprocess` directory and an archive containing the list of pairs for some of them.
 You have to download the datasets yourself from their official sources, our list of pairs, and run the preprocessing script.
 
-Links:
+Links:  
+  
 [ARKitScenes pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/arkitscenes_pairs.zip)  
 [ScanNet++ pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/scannetpp_pairs.zip)  
 
