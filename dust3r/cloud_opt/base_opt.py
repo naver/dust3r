@@ -79,6 +79,8 @@ class BasePCOptimizer (nn.Module):
         self.conf_i = NoGradParamDict({ij: pred1_conf[n] for n, ij in enumerate(self.str_edges)})
         self.conf_j = NoGradParamDict({ij: pred2_conf[n] for n, ij in enumerate(self.str_edges)})
         self.im_conf = self._compute_img_conf(pred1_conf, pred2_conf)
+        for i in range(len(self.im_conf)):
+            self.im_conf[i].requires_grad = False
 
         # pairwise pose parameters
         self.base_scale = base_scale
