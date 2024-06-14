@@ -79,6 +79,8 @@ class BasePCOptimizer (nn.Module):
         self.conf_i = NoGradParamDict({ij: pred1_conf[n] for n, ij in enumerate(self.str_edges)})
         self.conf_j = NoGradParamDict({ij: pred2_conf[n] for n, ij in enumerate(self.str_edges)})
         self.im_conf = self._compute_img_conf(pred1_conf, pred2_conf)
+        for i in range(len(self.im_conf)):
+            self.im_conf[i].requires_grad = False
 
         # pairwise pose parameters
         self.base_scale = base_scale
@@ -364,12 +366,12 @@ def global_alignment_loop(net, lr=0.01, niter=300, schedule='cosine', lr_min=1e-
     if verbose:
         with tqdm.tqdm(total=niter) as bar:
             while bar.n < bar.total:
-                loss = global_alignment_iter(net, bar.n, niter, lr_base, lr_min, optimizer, schedule)
+                loss, lr = global_alignment_iter(net, bar.n, niter, lr_base, lr_min, optimizer, schedule)
                 bar.set_postfix_str(f'{lr=:g} loss={loss:g}')
                 bar.update()
     else:
         for n in range(niter):
-            loss = global_alignment_iter(net, n, niter, lr_base, lr_min, optimizer, schedule)
+            loss, _ = global_alignment_iter(net, n, niter, lr_base, lr_min, optimizer, schedule)
     return loss
 
 
@@ -387,4 +389,4 @@ def global_alignment_iter(net, cur_iter, niter, lr_base, lr_min, optimizer, sche
     loss.backward()
     optimizer.step()
 
-    return float(loss)
+    return float(loss), lr
