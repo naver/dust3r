@@ -71,6 +71,7 @@ pip install -r requirements.txt
 # Optional: you can also install additional packages to:
 # - add support for HEIC images
 # - add pyrender, used to render depthmap in some datasets preprocessing
+# - add required packages for visloc.py
 pip install -r requirements_optional.txt
 ```
 
@@ -252,18 +253,27 @@ if __name__ == '__main__':
 In this section, we present a short demonstration to get started with training DUSt3R.
 
 ### Datasets
-At this moment, we have added three of the training datasets:
+At this moment, we have added the following training datasets:
   - [CO3Dv2](https://github.com/facebookresearch/co3d) - [Creative Commons Attribution-NonCommercial 4.0 International](https://github.com/facebookresearch/co3d/blob/main/LICENSE)
   - [ARKitScenes](https://github.com/apple/ARKitScenes) - [Creative Commons Attribution-NonCommercial-ShareAlike 4.0](https://github.com/apple/ARKitScenes/tree/main?tab=readme-ov-file#license)
   - [ScanNet++](https://kaldir.vc.in.tum.de/scannetpp/) - [non-commercial research and educational purposes](https://kaldir.vc.in.tum.de/scannetpp/static/scannetpp-terms-of-use.pdf)
+  - [BlendedMVS](https://github.com/YoYo000/BlendedMVS) - [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)
+  - [WayMo Open dataset](https://github.com/waymo-research/waymo-open-dataset) - [Non-Commercial Use](https://waymo.com/open/terms/)
+  - [MegaDepth](https://www.cs.cornell.edu/projects/megadepth/)
+  - [StaticThings3D](https://github.com/lmb-freiburg/robustmvd/blob/master/rmvd/data/README.md#staticthings3d)
+  - [WildRGB-D](https://github.com/wildrgbd/wildrgbd/)
 
-For each dataset, we provide a preprocessing script in the `datasets_preprocess` directory and an archive containing the list of pairs for some of them.
-You have to download the datasets yourself from their official sources, our list of pairs, and run the preprocessing script.
+For each dataset, we provide a preprocessing script in the `datasets_preprocess` directory and an archive containing the list of pairs when needed.
+You have to download the datasets yourself from their official sources, agree to their license, download our list of pairs, and run the preprocessing script.
 
 Links:  
   
 [ARKitScenes pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/arkitscenes_pairs.zip)  
 [ScanNet++ pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/scannetpp_pairs.zip)  
+[BlendedMVS pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/blendedmvs_pairs.npy)  
+[WayMo Open dataset pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/waymo_pairs.npz)  
+[MegaDepth pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/megadepth_pairs.npz)  
+[StaticThings3D pairs](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/staticthings_pairs.npy)  
 
 > [!NOTE]
 > They are not strictly equivalent to what was used to train DUSt3R, but they should be close enough.

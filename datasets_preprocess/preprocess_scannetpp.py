@@ -86,13 +86,13 @@ def load_sfm(sfm_dir, cam_type='dslr'):
 
     img_idx = {}
     img_infos = {}
-    for image, points in tqdm(zip(raw[0::2], raw[1::2]), total=len(raw)//2, position=1, leave=False):
+    for image, points in tqdm(zip(raw[0::2], raw[1::2]), total=len(raw) // 2, position=1, leave=False):
         image = image.split(' ')
         points = points.split(' ')
 
         idx = image[0]
         img_name = image[-1]
-        assert img_name not in img_idx, 'duplicate db image: '+img_name
+        assert img_name not in img_idx, 'duplicate db image: ' + img_name
         img_idx[img_name] = idx  # register image name
 
         current_points2D = {int(i): (float(x), float(y))
@@ -273,7 +273,7 @@ def process_scenes(root, pairsdir, output_dir, target_resolution):
                 # rescale_image_depthmap assumes opencv intrinsics
                 intrinsics = geometry.colmap_to_opencv_intrinsics(K)
                 image, mask, intrinsics = rescale_image_depthmap(
-                    rgb, mask, intrinsics, (target_resolution, target_resolution*3.0/4))
+                    rgb, mask, intrinsics, (target_resolution, target_resolution * 3.0 / 4))
 
                 W, H = image.size
                 intrinsics = geometry.opencv_to_colmap_intrinsics(intrinsics)

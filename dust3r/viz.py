@@ -9,7 +9,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 import torch
 
-from dust3r.utils.geometry import geotrf, get_med_dist_between_poses
+from dust3r.utils.geometry import geotrf, get_med_dist_between_poses, depthmap_to_absolute_camera_coordinates
 from dust3r.utils.device import to_numpy
 from dust3r.utils.image import rgb
 
@@ -138,6 +138,23 @@ class SceneViz:
 
         self.scene.add_geometry(pct)
         return self
+
+    def add_rgbd(self, image, depth, intrinsics=None, cam2world=None, zfar=np.inf, mask=None):
+        # make up some intrinsics
+        if intrinsics is None:
+            H, W, THREE = image.shape
+            focal = max(H, W)
+            intrinsics = np.float32([[focal, 0, W/2], [0, focal, H/2], [0, 0, 1]])
+
+        # compute 3d points
+        pts3d, mask2 = depthmap_to_absolute_camera_coordinates(depth, intrinsics, cam2world)
+        mask2 &= (depth<zfar) 
+
+        # combine with provided mask if any
+        if mask is not None:
+            mask2 &= mask
+
+        return self.add_pointcloud(pts3d, image, mask=mask2)
 
     def add_camera(self, pose_c2w, focal=None, color=(0, 0, 0), image=None, imsize=None, cam_size=0.03):
         pose_c2w, focal, color, image = to_numpy((pose_c2w, focal, color, image))

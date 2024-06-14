@@ -12,8 +12,10 @@ import numpy as np  # noqa
 from dust3r.utils.geometry import colmap_to_opencv_intrinsics, opencv_to_colmap_intrinsics  # noqa
 try:
     lanczos = PIL.Image.Resampling.LANCZOS
+    bicubic = PIL.Image.Resampling.BICUBIC
 except AttributeError:
     lanczos = PIL.Image.LANCZOS
+    bicubic = PIL.Image.BICUBIC
 
 
 class ImageList:
@@ -51,7 +53,7 @@ class ImageList:
         return [getattr(im, func)(*args, **kwargs) for im in self.images]
 
 
-def rescale_image_depthmap(image, depthmap, camera_intrinsics, output_resolution):
+def rescale_image_depthmap(image, depthmap, camera_intrinsics, output_resolution, force=True):
     """ Jointly rescale a (image, depthmap) 
         so that (out_width, out_height) >= output_res
     """
@@ -61,13 +63,16 @@ def rescale_image_depthmap(image, depthmap, camera_intrinsics, output_resolution
     if depthmap is not None:
         # can also use this with masks instead of depthmaps
         assert tuple(depthmap.shape[:2]) == image.size[::-1]
-    assert output_resolution.shape == (2,)
+
     # define output resolution
+    assert output_resolution.shape == (2,)
     scale_final = max(output_resolution / image.size) + 1e-8
+    if scale_final >= 1 and not force: # image is already smaller than what is asked
+        return (image.to_pil(), depthmap, camera_intrinsics)
     output_resolution = np.floor(input_resolution * scale_final).astype(int)
 
     # first rescale the image so that it contains the crop
-    image = image.resize(output_resolution, resample=lanczos)
+    image = image.resize(output_resolution, resample=lanczos if scale_final < 1 else bicubic)
     if depthmap is not None:
         depthmap = cv2.resize(depthmap, output_resolution, fx=scale_final,
                               fy=scale_final, interpolation=cv2.INTER_NEAREST)
@@ -117,3 +122,51 @@ def bbox_from_intrinsics_in_out(input_camera_matrix, output_camera_matrix, outpu
     l, t = np.int32(np.round(input_camera_matrix[:2, 2] - output_camera_matrix[:2, 2]))
     crop_bbox = (l, t, l+out_width, t+out_height)
     return crop_bbox
+
+'''
+def _rotation_origin_to_pt(target):
+    """ Align the origin (0,0,1) with the target point (x,y,1) in projective space.
+    Method: rotate z to put target on (x'+,0,1), then rotate on Y to get (0,0,1) and un-rotate z.
+    """
+    from scipy.spatial.transform import Rotation
+    x, y = target
+    rot_z = np.arctan2(y,x)
+    rot_y = np.arctan(np.linalg.norm(target))
+    R = Rotation.from_euler('ZYZ', [rot_z, rot_y, -rot_z]).as_matrix()
+    return R
+
+
+def crop_to_homography(K, crop, target_size=None):
+    """ Given an image and its intrinsics, 
+        we want to replicate a rectangular crop with an homography, 
+        so that the principal point of the new 'crop' is centered.
+    """
+    # build intrinsics for the crop
+    crop = np.round(crop)
+    crop_size = crop[2:] - crop[:2]
+    K2 = K.copy() # same focal
+    K2[:2,2] = crop_size / 2 # new principal point is perfectly centered
+
+    # find which corner is the most far-away from current principal point
+    # so that the final homography does not go over the image borders
+    corners = crop.reshape(-1,2)
+    corner_idx = np.abs(corners - K[:2,2]).argmax(0)
+    corner = corners[corner_idx, [0,1]]
+    # align with the corresponding corner from the target view
+    corner2 = np.c_[[0,0], crop_size][[0,1],corner_idx]
+
+    old_pt = _dotmv(np.linalg.inv(K), corner, norm=1)
+    new_pt = _dotmv(np.linalg.inv(K2),corner2, norm=1)
+    R = _rotation_origin_to_pt(old_pt) @ np.linalg.inv(_rotation_origin_to_pt(new_pt))
+
+    if target_size is not None:
+        imsize = target_size
+        target_size = np.asarray(target_size)
+        scaling = min(target_size / crop_size)
+        K2[:2] *= scaling
+        K2[:2, 2] = target_size / 2
+    else:
+        imsize = tuple(np.int32(crop_size).tolist())
+
+    return imsize, K2, R, K @ R @ np.linalg.inv(K2)
+'''

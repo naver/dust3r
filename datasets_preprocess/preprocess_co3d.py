@@ -36,7 +36,7 @@ CATEGORIES = [
     "mouse", "orange", "parkingmeter", "pizza", "plant", "remote", "sandwich",
     "skateboard", "stopsign",
     "suitcase", "teddybear", "toaster", "toilet", "toybus",
-    "toyplane", "toytrain", "toytruck",  "tv",
+    "toyplane", "toytrain", "toytruck", "tv",
     "umbrella", "vase", "wineglass",
 ]
 CATEGORIES_IDX = {cat: i for i, cat in enumerate(CATEGORIES)}  # for seeding
@@ -199,8 +199,8 @@ def prepare_sequences(category, co3d_dir, output_dir, img_size, split, min_quali
 
         camera_intrinsics = camera_intrinsics.numpy()
         cx, cy = camera_intrinsics[:2, 2].round().astype(int)
-        min_margin_x = min(cx, W-cx)
-        min_margin_y = min(cy, H-cy)
+        min_margin_x = min(cx, W - cx)
+        min_margin_y = min(cy, H - cy)
 
         # the new window will be a rectangle of size (2*min_margin_x, 2*min_margin_y) centered on (cx,cy)
         l, t = cx - min_margin_x, cy - min_margin_y
@@ -225,7 +225,7 @@ def prepare_sequences(category, co3d_dir, output_dir, img_size, split, min_quali
         # generate and adjust camera pose
         camera_pose = np.eye(4, dtype=np.float32)
         camera_pose[:3, :3] = R
-        camera_pose[:3,  3] = tvec
+        camera_pose[:3, 3] = tvec
         camera_pose = np.linalg.inv(camera_pose)
 
         # save crop images and depth, metadata

@@ -96,7 +96,7 @@ if __name__ == "__main__":
             viz.add_pointcloud(pts3d, colors, valid_mask)
             viz.add_camera(pose_c2w=views[view_idx]['camera_pose'],
                            focal=views[view_idx]['camera_intrinsics'][0, 0],
-                           color=(idx*255, (1 - idx)*255, 0),
+                           color=(idx * 255, (1 - idx) * 255, 0),
                            image=colors,
                            cam_size=cam_size)
         viz.show()
