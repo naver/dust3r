@@ -3,6 +3,8 @@
 Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`  
 [[Project page](https://dust3r.europe.naverlabs.com/)], [[DUSt3R arxiv](https://arxiv.org/abs/2312.14132)]  
 
+> :warning: **We have removed the checkpoints temporarily**: We apologize for that!
+
 ![Example of reconstruction from two images](assets/pipeline1.jpg)
 
 ![High level overview of DUSt3R capabilities](assets/dust3r_archi.jpg)
@@ -81,6 +83,7 @@ cd ../../../
 ```
 
 ### Checkpoints
+> :warning: **We have removed the checkpoints temporarily**: We apologize for that!
 
 You can obtain the checkpoints by two ways:
 
@@ -90,16 +93,16 @@ You can obtain the checkpoints by two ways:
 
 | Modelname   | Training resolutions | Head | Encoder | Decoder |
 |-------------|----------------------|------|---------|---------|
-| [`DUSt3R_ViTLarge_BaseDecoder_224_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_224_linear.pth) | 224x224 | Linear | ViT-L | ViT-B |
-| [`DUSt3R_ViTLarge_BaseDecoder_512_linear.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_linear.pth)   | 512x384, 512x336, 512x288, 512x256, 512x160 | Linear | ViT-L | ViT-B |
-| [`DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth`](https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth) | 512x384, 512x336, 512x288, 512x256, 512x160 | DPT | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_224_linear.pth`]() | 224x224 | Linear | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_512_linear.pth`]()   | 512x384, 512x336, 512x288, 512x256, 512x160 | Linear | ViT-L | ViT-B |
+| [`DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth`]() | 512x384, 512x336, 512x288, 512x256, 512x160 | DPT | ViT-L | ViT-B |
 
 You can check the hyperparameters we used to train these models in the [section: Our Hyperparameters](#our-hyperparameters)
 
 To download a specific model, for example `DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth`:
 ```bash
 mkdir -p checkpoints/
-wget https://download.europe.naverlabs.com/ComputerVision/DUSt3R/DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth -P checkpoints/
+wget TODO -P checkpoints/
 ```
 
 ### Interactive demo
