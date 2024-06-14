@@ -2,9 +2,14 @@
 # Licensed under CC BY-NC-SA 4.0 (non-commercial use only).
 from .utils.transforms import *
 from .base.batched_sampler import BatchedRandomSampler  # noqa: F401
-from .co3d import Co3d  # noqa: F401
-from .arkitscenes import ARKitScenes  # noqa: F401
-from .scannetpp import ScanNetpp  # noqa: F401
+from .arkitscenes import ARKitScenes  # noqa
+from .blendedmvs import BlendedMVS  # noqa
+from .co3d import Co3d  # noqa
+from .megadepth import MegaDepth  # noqa
+from .scannetpp import ScanNetpp  # noqa
+from .staticthings3d import StaticThings3D  # noqa
+from .waymo import Waymo  # noqa
+from .wildrgbd import WildRGBD  # noqa
 
 
 def get_data_loader(dataset, batch_size, num_workers=8, shuffle=True, drop_last=True, pin_mem=True):
