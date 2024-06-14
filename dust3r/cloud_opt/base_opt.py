@@ -231,43 +231,17 @@ class BasePCOptimizer (nn.Module):
     def get_depthmaps(self, raw=False):
         raise NotImplementedError()
 
-    @torch.no_grad()
-    def clean_pointcloud(self, tol=0.001, max_bad_conf=0):
-        """ Method: 
-        1) express all 3d points in each camera coordinate frame
-        2) if they're in front of a depthmap --> then lower their confidence
-        """
-        assert 0 <= tol < 1
+    def clean_pointcloud(self, **kw):
         cams = inv(self.get_im_poses())
         K = self.get_intrinsics()
         depthmaps = self.get_depthmaps()
-        res = deepcopy(self)
+        all_pts3d = self.get_pts3d()
 
-        for i, pts3d in enumerate(self.depth_to_pts3d()):
-            for j in range(self.n_imgs):
-                if i == j:
-                    continue
+        new_im_confs = clean_pointcloud(self.im_conf, K, cams, depthmaps, all_pts3d, **kw)
 
-                # project 3dpts in other view
-                Hi, Wi = self.imshapes[i]
-                Hj, Wj = self.imshapes[j]
-                proj = geotrf(cams[j], pts3d[:Hi*Wi]).reshape(Hi, Wi, 3)
-                proj_depth = proj[:, :, 2]
-                u, v = geotrf(K[j], proj, norm=1, ncol=2).round().long().unbind(-1)
-
-                # check which points are actually in the visible cone
-                msk_i = (proj_depth > 0) & (0 <= u) & (u < Wj) & (0 <= v) & (v < Hj)
-                msk_j = v[msk_i], u[msk_i]
-
-                # find bad points = those in front but less confident
-                bad_points = (proj_depth[msk_i] < (1-tol) * depthmaps[j][msk_j]
-                              ) & (res.im_conf[i][msk_i] < res.im_conf[j][msk_j])
-
-                bad_msk_i = msk_i.clone()
-                bad_msk_i[msk_i] = bad_points
-                res.im_conf[i][bad_msk_i] = res.im_conf[i][bad_msk_i].clip_(max=max_bad_conf)
-
-        return res
+        for i, new_conf in enumerate(new_im_confs):
+            self.im_conf[i].data[:] = new_conf
+        return self
 
     def forward(self, ret_details=False):
         pw_poses = self.get_pw_poses()  # cam-to-world
@@ -390,3 +364,42 @@ def global_alignment_iter(net, cur_iter, niter, lr_base, lr_min, optimizer, sche
     optimizer.step()
 
     return float(loss), lr
+
+
+@torch.no_grad()
+def clean_pointcloud( im_confs, K, cams, depthmaps, all_pts3d, 
+                      tol=0.001, bad_conf=0, dbg=()):
+    """ Method: 
+    1) express all 3d points in each camera coordinate frame
+    2) if they're in front of a depthmap --> then lower their confidence
+    """
+    assert len(im_confs) == len(cams) == len(K) == len(depthmaps) == len(all_pts3d)
+    assert 0 <= tol < 1
+    res = [c.clone() for c in im_confs]
+
+    # reshape appropriately
+    all_pts3d = [p.view(*c.shape,3) for p,c in zip(all_pts3d, im_confs)]
+    depthmaps = [d.view(*c.shape) for d,c in zip(depthmaps, im_confs)]
+    
+    for i, pts3d in enumerate(all_pts3d):
+        for j in range(len(all_pts3d)):
+            if i == j: continue
+
+            # project 3dpts in other view
+            proj = geotrf(cams[j], pts3d)
+            proj_depth = proj[:,:,2]
+            u,v = geotrf(K[j], proj, norm=1, ncol=2).round().long().unbind(-1)
+
+            # check which points are actually in the visible cone
+            H, W = im_confs[j].shape
+            msk_i = (proj_depth > 0) & (0 <= u) & (u < W) & (0 <= v) & (v < H)
+            msk_j = v[msk_i], u[msk_i]
+
+            # find bad points = those in front but less confident
+            bad_points = (proj_depth[msk_i] < (1-tol) * depthmaps[j][msk_j]) & (res[i][msk_i] < res[j][msk_j])
+
+            bad_msk_i = msk_i.clone()
+            bad_msk_i[msk_i] = bad_points
+            res[i][bad_msk_i] = res[i][bad_msk_i].clip_(max=bad_conf)
+
+    return res
