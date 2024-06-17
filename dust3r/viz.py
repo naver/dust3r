@@ -196,7 +196,7 @@ class SceneViz:
             if imsize is None:
                 imsize = (2*intrinsics[0,2], 2*intrinsics[1,2])
         
-        add_scene_cam(self.scene, pose_c2w, color, image, focal, imsize=imsize, screen_width=cam_size, marker=marker)
+        add_scene_cam(self.scene, pose_c2w, color, image, focal, imsize=imsize, screen_width=cam_size, marker=None)
         return self
 
     def add_cameras(self, poses, focals=None, images=None, imsizes=None, colors=None, **kw):
