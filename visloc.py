@@ -181,7 +181,7 @@ if __name__ == '__main__':
         angular_errors.append(abs_angular_error)
         poses_pred.append(pr_querycam_to_world)
 
-    xp_label = f'tol_{args.pixel_tol}_conf_{conf_thr}'
+    xp_label = f'tol_conf_{conf_thr}'
     if args.output_label:
         xp_label = args.output_label + '_' + xp_label
     if reprojection_error_diag_ratio is not None:
