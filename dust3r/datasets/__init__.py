@@ -1,10 +1,11 @@
 # Copyright (C) 2024-present Naver Corporation. All rights reserved.
 # Licensed under CC BY-NC-SA 4.0 (non-commercial use only).
 from .utils.transforms import *
-from .base.batched_sampler import BatchedRandomSampler  # noqa: F401
+from .base.batched_sampler import BatchedRandomSampler  # noqa
 from .arkitscenes import ARKitScenes  # noqa
 from .blendedmvs import BlendedMVS  # noqa
 from .co3d import Co3d  # noqa
+from .habitat import Habitat  # noqa
 from .megadepth import MegaDepth  # noqa
 from .scannetpp import ScanNetpp  # noqa
 from .staticthings3d import StaticThings3D  # noqa
