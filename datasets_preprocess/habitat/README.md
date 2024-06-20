@@ -51,8 +51,8 @@ Render the scenes in an output directory `$OUTPUT_DIR`
 export METADATA_DIR="/path/to/habitat/5views_v1_512x512_metadata"
 export SCENES_DIR="/path/to/habitat/data/scene_datasets/"
 export OUTPUT_DIR="data/habitat_processed"
-export PYTHONPATH=$(pwd)
 cd datasets_preprocess/habitat/
+export PYTHONPATH=$(pwd)
 # Print commandlines to generate images corresponding to each scene
 python preprocess_habitat.py --scenes_dir=$SCENES_DIR --metadata_dir=$METADATA_DIR --output_dir=$OUTPUT_DIR
 # Launch these commandlines in parallel e.g. using GNU-Parallel as follows:
