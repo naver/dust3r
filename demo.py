@@ -57,8 +57,11 @@ def get_args_parser():
 
 def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, cam_size=0.05,
                                  cam_color=None, as_pointcloud=False,
-                                 transparent_cams=False, silent=False):
-    assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world) == len(focals)
+                                 transparent_cams=False, silent=False, same_focals=False):
+    
+    assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world)
+    if not same_focals:
+        assert(len(cams2world) == len(focals))
     pts3d = to_numpy(pts3d)
     imgs = to_numpy(imgs)
     focals = to_numpy(focals)
@@ -85,8 +88,12 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
             camera_edge_color = cam_color[i]
         else:
             camera_edge_color = cam_color or CAM_COLORS[i % len(CAM_COLORS)]
+        if same_focals:
+            focal = focals[0]
+        else:
+            focal = focals[i]
         add_scene_cam(scene, pose_c2w, camera_edge_color,
-                      None if transparent_cams else imgs[i], focals[i],
+                      None if transparent_cams else imgs[i], focal,
                       imsize=imgs[i].shape[1::-1], screen_width=cam_size)
 
     rot = np.eye(4)
@@ -100,7 +107,7 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
 
 
 def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud=False, mask_sky=False,
-                            clean_depth=False, transparent_cams=False, cam_size=0.05):
+                            clean_depth=False, transparent_cams=False, cam_size=0.05, same_focals=False):
     """
     extract 3D_model (glb file) from a reconstructed scene
     """
@@ -121,12 +128,12 @@ def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud
     scene.min_conf_thr = float(scene.conf_trf(torch.tensor(min_conf_thr)))
     msk = to_numpy(scene.get_masks())
     return _convert_scene_output_to_glb(outdir, rgbimg, pts3d, msk, focals, cams2world, as_pointcloud=as_pointcloud,
-                                        transparent_cams=transparent_cams, cam_size=cam_size, silent=silent)
+                                        transparent_cams=transparent_cams, cam_size=cam_size, silent=silent, same_focals=same_focals)
 
 
 def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist, schedule, niter, min_conf_thr,
                             as_pointcloud, mask_sky, clean_depth, transparent_cams, cam_size,
-                            scenegraph_type, winsize, refid):
+                            scenegraph_type, winsize, refid, same_focals):
     """
     from a list of images, run dust3r inference, global aligner.
     then run get_3D_model_from_scene
@@ -144,14 +151,14 @@ def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist,
     output = inference(pairs, model, device, batch_size=batch_size, verbose=not silent)
 
     mode = GlobalAlignerMode.PointCloudOptimizer if len(imgs) > 2 else GlobalAlignerMode.PairViewer
-    scene = global_aligner(output, device=device, mode=mode, verbose=not silent)
+    scene = global_aligner(output, device=device, mode=mode, verbose=not silent, same_focals=same_focals)
     lr = 0.01
 
     if mode == GlobalAlignerMode.PointCloudOptimizer:
         loss = scene.compute_global_alignment(init='mst', niter=niter, schedule=schedule, lr=lr)
 
     outfile = get_3D_model_from_scene(outdir, silent, scene, min_conf_thr, as_pointcloud, mask_sky,
-                                      clean_depth, transparent_cams, cam_size)
+                                      clean_depth, transparent_cams, cam_size, same_focals=same_focals)
 
     # also return rgb, depth and confidence imgs
     # depth is normalized with the max value for all images
@@ -213,6 +220,7 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
                                                   value='complete', label="Scenegraph",
                                                   info="Define how to make pairs",
                                                   interactive=True)
+                same_focals = gradio.Checkbox(value=False, label="Focal", info="Use the same focal for all cameras")
                 winsize = gradio.Slider(label="Scene Graph: Window Size", value=1,
                                         minimum=1, maximum=1, step=1, visible=False)
                 refid = gradio.Slider(label="Scene Graph: Id", value=0, minimum=0, maximum=0, step=1, visible=False)
@@ -244,33 +252,34 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
             run_btn.click(fn=recon_fun,
                           inputs=[inputfiles, schedule, niter, min_conf_thr, as_pointcloud,
                                   mask_sky, clean_depth, transparent_cams, cam_size,
-                                  scenegraph_type, winsize, refid],
+                                  scenegraph_type, winsize, refid, same_focals],
                           outputs=[scene, outmodel, outgallery])
             min_conf_thr.release(fn=model_from_scene_fun,
                                  inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
-                                         clean_depth, transparent_cams, cam_size],
+                                         clean_depth, transparent_cams, cam_size, same_focals],
                                  outputs=outmodel)
             cam_size.change(fn=model_from_scene_fun,
                             inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
-                                    clean_depth, transparent_cams, cam_size],
+                                    clean_depth, transparent_cams, cam_size, same_focals],
                             outputs=outmodel)
             as_pointcloud.change(fn=model_from_scene_fun,
                                  inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
-                                         clean_depth, transparent_cams, cam_size],
+                                         clean_depth, transparent_cams, cam_size, same_focals],
                                  outputs=outmodel)
             mask_sky.change(fn=model_from_scene_fun,
                             inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
-                                    clean_depth, transparent_cams, cam_size],
+                                    clean_depth, transparent_cams, cam_size, same_focals],
                             outputs=outmodel)
             clean_depth.change(fn=model_from_scene_fun,
                                inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
-                                       clean_depth, transparent_cams, cam_size],
+                                       clean_depth, transparent_cams, cam_size, same_focals],
                                outputs=outmodel)
             transparent_cams.change(model_from_scene_fun,
                                     inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
-                                            clean_depth, transparent_cams, cam_size],
+                                            clean_depth, transparent_cams, cam_size, same_focals],
                                     outputs=outmodel)
-    demo.launch(share=False, server_name=server_name, server_port=server_port)
+            
+    demo.launch(share=True, server_name=server_name, server_port=server_port)
 
 
 if __name__ == '__main__':
