@@ -40,8 +40,8 @@ $SCENES_DIR/
 
 Download metadata corresponding to each scene and extract them into a directory `$METADATA_DIR`
 ```bash
-wget DOWNLOAD_LINK_TODO
-tar -xvzf 5views_v1_512x512_metadata.tar.gz
+wget https://download.europe.naverlabs.com/ComputerVision/DUSt3R/habitat_5views_v1_512x512_metadata.tar.gz
+tar -xvzf habitat_5views_v1_512x512_metadata.tar.gz
 ```
 
 ### Render the scenes
