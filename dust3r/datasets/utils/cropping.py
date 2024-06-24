@@ -12,8 +12,10 @@ import numpy as np  # noqa
 from dust3r.utils.geometry import colmap_to_opencv_intrinsics, opencv_to_colmap_intrinsics  # noqa
 try:
     lanczos = PIL.Image.Resampling.LANCZOS
+    bicubic = PIL.Image.Resampling.BICUBIC
 except AttributeError:
     lanczos = PIL.Image.LANCZOS
+    bicubic = PIL.Image.BICUBIC
 
 
 class ImageList:
@@ -51,7 +53,7 @@ class ImageList:
         return [getattr(im, func)(*args, **kwargs) for im in self.images]
 
 
-def rescale_image_depthmap(image, depthmap, camera_intrinsics, output_resolution):
+def rescale_image_depthmap(image, depthmap, camera_intrinsics, output_resolution, force=True):
     """ Jointly rescale a (image, depthmap) 
         so that (out_width, out_height) >= output_res
     """
@@ -61,13 +63,16 @@ def rescale_image_depthmap(image, depthmap, camera_intrinsics, output_resolution
     if depthmap is not None:
         # can also use this with masks instead of depthmaps
         assert tuple(depthmap.shape[:2]) == image.size[::-1]
-    assert output_resolution.shape == (2,)
+
     # define output resolution
+    assert output_resolution.shape == (2,)
     scale_final = max(output_resolution / image.size) + 1e-8
+    if scale_final >= 1 and not force:  # image is already smaller than what is asked
+        return (image.to_pil(), depthmap, camera_intrinsics)
     output_resolution = np.floor(input_resolution * scale_final).astype(int)
 
     # first rescale the image so that it contains the crop
-    image = image.resize(output_resolution, resample=lanczos)
+    image = image.resize(output_resolution, resample=lanczos if scale_final < 1 else bicubic)
     if depthmap is not None:
         depthmap = cv2.resize(depthmap, output_resolution, fx=scale_final,
                               fy=scale_final, interpolation=cv2.INTER_NEAREST)
@@ -115,5 +120,5 @@ def crop_image_depthmap(image, depthmap, camera_intrinsics, crop_bbox):
 def bbox_from_intrinsics_in_out(input_camera_matrix, output_camera_matrix, output_resolution):
     out_width, out_height = output_resolution
     l, t = np.int32(np.round(input_camera_matrix[:2, 2] - output_camera_matrix[:2, 2]))
-    crop_bbox = (l, t, l+out_width, t+out_height)
+    crop_bbox = (l, t, l + out_width, t + out_height)
     return crop_bbox

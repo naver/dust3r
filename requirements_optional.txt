@@ -1,1 +1,7 @@
 pillow-heif  # add heif/heic image support
+pyrender  # for rendering depths in scannetpp
+kapture  # for visloc data loading
+kapture-localization
+numpy-quaternion
+pycolmap  # for pnp
+poselib  # for pnp

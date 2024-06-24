@@ -36,7 +36,7 @@ def is_symmetrized(gt1, gt2):
         return False  # special case of batchsize 1
     ok = True
     for i in range(0, len(x), 2):
-        ok = ok and (x[i] == y[i+1]) and (x[i+1] == y[i])
+        ok = ok and (x[i] == y[i + 1]) and (x[i + 1] == y[i])
     return ok
 
 
@@ -81,7 +81,7 @@ def transpose_to_landscape(head, activate=True):
         # batch is a mix of both portraint & landscape
         def selout(ar): return [d[ar] for d in decout]
         l_result = head(selout(is_landscape), (H, W))
-        p_result = transposed(head(selout(is_portrait),  (W, H)))
+        p_result = transposed(head(selout(is_portrait), (W, H)))
 
         # allocate full result
         result = {}

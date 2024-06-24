@@ -31,9 +31,10 @@ def make_batch_symmetric(batch):
 
 def loss_of_one_batch(batch, model, criterion, device, symmetrize_batch=False, use_amp=False, ret=None):
     view1, view2 = batch
+    ignore_keys = set(['depthmap', 'dataset', 'label', 'instance', 'idx', 'true_shape', 'rng'])
     for view in batch:
-        for name in 'img pts3d valid_mask camera_pose camera_intrinsics F_matrix corres'.split():  # pseudo_focal
-            if name not in view:
+        for name in view.keys():  # pseudo_focal
+            if name in ignore_keys:
                 continue
             view[name] = view[name].to(device, non_blocking=True)
 
@@ -63,7 +64,7 @@ def inference(pairs, model, device, batch_size=8, verbose=True):
         batch_size = 1
 
     for i in tqdm.trange(0, len(pairs), batch_size, disable=not verbose):
-        res = loss_of_one_batch(collate_with_cat(pairs[i:i+batch_size]), model, None, device)
+        res = loss_of_one_batch(collate_with_cat(pairs[i:i + batch_size]), model, None, device)
         result.append(to_cpu(res))
 
     result = collate_with_cat(result, lists=multiple_shapes)

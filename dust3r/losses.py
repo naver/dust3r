@@ -25,18 +25,20 @@ def Sum(*losses_and_masks):
         return loss
 
 
-class LLoss (nn.Module):
-    """ L-norm loss
-    """
-
+class BaseCriterion(nn.Module):
     def __init__(self, reduction='mean'):
         super().__init__()
         self.reduction = reduction
 
+
+class LLoss (BaseCriterion):
+    """ L-norm loss
+    """
+
     def forward(self, a, b):
         assert a.shape == b.shape and a.ndim >= 2 and 1 <= a.shape[-1] <= 3, f'Bad shape = {a.shape}'
         dist = self.distance(a, b)
-        assert dist.ndim == a.ndim-1  # one dimension less
+        assert dist.ndim == a.ndim - 1  # one dimension less
         if self.reduction == 'none':
             return dist
         if self.reduction == 'sum':
@@ -62,17 +64,17 @@ L21 = L21Loss()
 class Criterion (nn.Module):
     def __init__(self, criterion=None):
         super().__init__()
-        assert isinstance(criterion, LLoss), f'{criterion} is not a proper criterion!'+bb()
+        assert isinstance(criterion, BaseCriterion), f'{criterion} is not a proper criterion!'
         self.criterion = copy(criterion)
 
     def get_name(self):
         return f'{type(self).__name__}({self.criterion})'
 
-    def with_reduction(self, mode):
+    def with_reduction(self, mode='none'):
         res = loss = deepcopy(self)
         while loss is not None:
             assert isinstance(loss, Criterion)
-            loss.criterion.reduction = 'none'  # make it return the loss for each sample
+            loss.criterion.reduction = mode  # make it return the loss for each sample
             loss = loss._loss2  # we assume loss is a Multiloss
         return res
 
@@ -188,7 +190,7 @@ class Regr3D (Criterion, MultiLoss):
         # loss on gt2 side
         l2 = self.criterion(pred_pts2[mask2], gt_pts2[mask2])
         self_name = type(self).__name__
-        details = {self_name+'_pts3d_1': float(l1.mean()), self_name+'_pts3d_2': float(l2.mean())}
+        details = {self_name + '_pts3d_1': float(l1.mean()), self_name + '_pts3d_2': float(l2.mean())}
         return Sum((l1, mask1), (l2, mask2)), (details | monitoring)
 
 

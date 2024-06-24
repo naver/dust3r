@@ -23,6 +23,11 @@ except ImportError:
 ImgNorm = tvf.Compose([tvf.ToTensor(), tvf.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
+def img_to_arr( img ):
+    if isinstance(img, str):
+        img = imread_cv2(img)
+    return img
+
 def imread_cv2(path, options=cv2.IMREAD_COLOR):
     """ Open an image or a depthmap with opencv-python.
     """

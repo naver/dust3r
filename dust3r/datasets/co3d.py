@@ -24,6 +24,7 @@ class Co3d(BaseStereoViewDataset):
         super().__init__(*args, **kwargs)
         assert mask_bg in (True, False, 'rand')
         self.mask_bg = mask_bg
+        self.dataset_label = 'Co3d_v2'
 
         # load all scenes
         with open(osp.join(self.ROOT, f'selected_seqs_{self.split}.json'), 'r') as f:
@@ -37,12 +38,29 @@ class Co3d(BaseStereoViewDataset):
         # we prepare all combinations such that i-j = +/- [5, 10, .., 90] degrees
         self.combinations = [(i, j)
                              for i, j in itertools.combinations(range(100), 2)
-                             if 0 < abs(i-j) <= 30 and abs(i-j) % 5 == 0]
+                             if 0 < abs(i - j) <= 30 and abs(i - j) % 5 == 0]
 
         self.invalidate = {scene: {} for scene in self.scene_list}
 
     def __len__(self):
         return len(self.scene_list) * len(self.combinations)
+
+    def _get_metadatapath(self, obj, instance, view_idx):
+        return osp.join(self.ROOT, obj, instance, 'images', f'frame{view_idx:06n}.npz')
+
+    def _get_impath(self, obj, instance, view_idx):
+        return osp.join(self.ROOT, obj, instance, 'images', f'frame{view_idx:06n}.jpg')
+
+    def _get_depthpath(self, obj, instance, view_idx):
+        return osp.join(self.ROOT, obj, instance, 'depths', f'frame{view_idx:06n}.jpg.geometric.png')
+
+    def _get_maskpath(self, obj, instance, view_idx):
+        return osp.join(self.ROOT, obj, instance, 'masks', f'frame{view_idx:06n}.png')
+
+    def _read_depthmap(self, depthpath, input_metadata):
+        depthmap = imread_cv2(depthpath, cv2.IMREAD_UNCHANGED)
+        depthmap = (depthmap.astype(np.float32) / 65535) * np.nan_to_num(input_metadata['maximum_depth'])
+        return depthmap
 
     def _get_views(self, idx, resolution, rng):
         # choose a scene
@@ -51,7 +69,7 @@ class Co3d(BaseStereoViewDataset):
         im1_idx, im2_idx = self.combinations[idx % len(self.combinations)]
 
         # add a bit of randomness
-        last = len(image_pool)-1
+        last = len(image_pool) - 1
 
         if resolution not in self.invalidate[obj, instance]:  # flag invalid images
             self.invalidate[obj, instance][resolution] = [False for _ in range(len(image_pool))]
@@ -76,21 +94,22 @@ class Co3d(BaseStereoViewDataset):
 
             view_idx = image_pool[im_idx]
 
-            impath = osp.join(self.ROOT, obj, instance, 'images', f'frame{view_idx:06n}.jpg')
+            impath = self._get_impath(obj, instance, view_idx)
+            depthpath = self._get_depthpath(obj, instance, view_idx)
 
             # load camera params
-            input_metadata = np.load(impath.replace('jpg', 'npz'))
+            metadata_path = self._get_metadatapath(obj, instance, view_idx)
+            input_metadata = np.load(metadata_path)
             camera_pose = input_metadata['camera_pose'].astype(np.float32)
             intrinsics = input_metadata['camera_intrinsics'].astype(np.float32)
 
             # load image and depth
             rgb_image = imread_cv2(impath)
-            depthmap = imread_cv2(impath.replace('images', 'depths') + '.geometric.png', cv2.IMREAD_UNCHANGED)
-            depthmap = (depthmap.astype(np.float32) / 65535) * np.nan_to_num(input_metadata['maximum_depth'])
+            depthmap = self._read_depthmap(depthpath, input_metadata)
 
             if mask_bg:
                 # load object mask
-                maskpath = osp.join(self.ROOT, obj, instance, 'masks', f'frame{view_idx:06n}.png')
+                maskpath = self._get_maskpath(obj, instance, view_idx)
                 maskmap = imread_cv2(maskpath, cv2.IMREAD_UNCHANGED).astype(np.float32)
                 maskmap = (maskmap / 255.0) > 0.1
 
@@ -112,7 +131,7 @@ class Co3d(BaseStereoViewDataset):
                 depthmap=depthmap,
                 camera_pose=camera_pose,
                 camera_intrinsics=intrinsics,
-                dataset='Co3d_v2',
+                dataset=self.dataset_label,
                 label=osp.join(obj, instance),
                 instance=osp.split(impath)[1],
             ))
@@ -140,7 +159,7 @@ if __name__ == "__main__":
             viz.add_pointcloud(pts3d, colors, valid_mask)
             viz.add_camera(pose_c2w=views[view_idx]['camera_pose'],
                            focal=views[view_idx]['camera_intrinsics'][0, 0],
-                           color=(idx*255, (1 - idx)*255, 0),
+                           color=(idx * 255, (1 - idx) * 255, 0),
                            image=colors,
                            cam_size=cam_size)
         viz.show()

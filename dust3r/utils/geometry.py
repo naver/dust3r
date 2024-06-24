@@ -26,7 +26,7 @@ def xy_grid(W, H, device=None, origin=(0, 0), unsqueeze=None, cat_dim=-1, homoge
         meshgrid, stack = torch.meshgrid, torch.stack
         ones = lambda *a: torch.ones(*a, device=device)
 
-    tw, th = [arange(o, o+s, **arange_kw) for s, o in zip((W, H), origin)]
+    tw, th = [arange(o, o + s, **arange_kw) for s, o in zip((W, H), origin)]
     grid = meshgrid(tw, th, indexing='xy')
     if homogeneous:
         grid = grid + (ones((H, W)),)
@@ -64,13 +64,13 @@ def geotrf(Trf, pts, ncol=None, norm=False):
         d = pts.shape[3]
         if Trf.shape[-1] == d:
             pts = torch.einsum("bij, bhwj -> bhwi", Trf, pts)
-        elif Trf.shape[-1] == d+1:
+        elif Trf.shape[-1] == d + 1:
             pts = torch.einsum("bij, bhwj -> bhwi", Trf[:, :d, :d], pts) + Trf[:, None, None, :d, d]
         else:
             raise ValueError(f'bad shape, not ending with 3 or 4, for {pts.shape=}')
     else:
         if Trf.ndim >= 3:
-            n = Trf.ndim-2
+            n = Trf.ndim - 2
             assert Trf.shape[:n] == pts.shape[:n], 'batch size does not match'
             Trf = Trf.reshape(-1, Trf.shape[-2], Trf.shape[-1])
 
@@ -81,7 +81,7 @@ def geotrf(Trf, pts, ncol=None, norm=False):
                 # Trf == (B,d,d) & pts == (B,d) --> (B, 1, d)
                 pts = pts[:, None, :]
 
-        if pts.shape[-1]+1 == Trf.shape[-1]:
+        if pts.shape[-1] + 1 == Trf.shape[-1]:
             Trf = Trf.swapaxes(-1, -2)  # transpose Trf
             pts = pts @ Trf[..., :-1, :] + Trf[..., -1:, :]
         elif pts.shape[-1] == Trf.shape[-1]:
@@ -143,8 +143,8 @@ def depthmap_to_pts3d(depth, pseudo_focal, pp=None, **_):
 
     # set principal point
     if pp is None:
-        grid_x = grid_x - (W-1)/2
-        grid_y = grid_y - (H-1)/2
+        grid_x = grid_x - (W - 1) / 2
+        grid_y = grid_y - (H - 1) / 2
     else:
         grid_x = grid_x.expand(B, -1, -1) - pp[:, 0, None, None]
         grid_y = grid_y.expand(B, -1, -1) - pp[:, 1, None, None]
@@ -207,13 +207,16 @@ def depthmap_to_absolute_camera_coordinates(depthmap, camera_intrinsics, camera_
         pointmap of absolute coordinates (HxWx3 array), and a mask specifying valid pixels."""
     X_cam, valid_mask = depthmap_to_camera_coordinates(depthmap, camera_intrinsics)
 
-    # R_cam2world = np.float32(camera_params["R_cam2world"])
-    # t_cam2world = np.float32(camera_params["t_cam2world"]).squeeze()
-    R_cam2world = camera_pose[:3, :3]
-    t_cam2world = camera_pose[:3, 3]
+    X_world = X_cam # default
+    if camera_pose is not None:
+        # R_cam2world = np.float32(camera_params["R_cam2world"])
+        # t_cam2world = np.float32(camera_params["t_cam2world"]).squeeze()
+        R_cam2world = camera_pose[:3, :3]
+        t_cam2world = camera_pose[:3, 3]
 
-    # Express in absolute coordinates (invalid depth values)
-    X_world = np.einsum("ik, vuk -> vui", R_cam2world, X_cam) + t_cam2world[None, None, :]
+        # Express in absolute coordinates (invalid depth values)
+        X_world = np.einsum("ik, vuk -> vui", R_cam2world, X_cam) + t_cam2world[None, None, :]
+
     return X_world, valid_mask
 
 
@@ -243,7 +246,7 @@ def opencv_to_colmap_intrinsics(K):
     return K
 
 
-def normalize_pointcloud(pts1, pts2, norm_mode='avg_dis', valid1=None, valid2=None):
+def normalize_pointcloud(pts1, pts2, norm_mode='avg_dis', valid1=None, valid2=None, ret_factor=False):
     """ renorm pointmaps pts1, pts2 with norm_mode
     """
     assert pts1.ndim >= 3 and pts1.shape[-1] == 3
@@ -267,10 +270,10 @@ def normalize_pointcloud(pts1, pts2, norm_mode='avg_dis', valid1=None, valid2=No
             log_dis = torch.log1p(all_dis)
             warp_factor = log_dis / all_dis.clip(min=1e-8)
             H1, W1 = pts1.shape[1:-1]
-            pts1 = pts1 * warp_factor[:, :W1*H1].view(-1, H1, W1, 1)
+            pts1 = pts1 * warp_factor[:, :W1 * H1].view(-1, H1, W1, 1)
             if pts2 is not None:
                 H2, W2 = pts2.shape[1:-1]
-                pts2 = pts2 * warp_factor[:, W1*H1:].view(-1, H2, W2, 1)
+                pts2 = pts2 * warp_factor[:, W1 * H1:].view(-1, H2, W2, 1)
             all_dis = log_dis  # this is their true distance afterwards
         else:
             raise ValueError(f'bad {dis_mode=}')
@@ -301,6 +304,8 @@ def normalize_pointcloud(pts1, pts2, norm_mode='avg_dis', valid1=None, valid2=No
     res = pts1 / norm_factor
     if pts2 is not None:
         res = (res, pts2 / norm_factor)
+    if ret_factor:
+        res = res + (norm_factor,)
     return res
 
 
