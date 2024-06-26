@@ -345,7 +345,7 @@ torchrun --nproc_per_node=4 train.py \
 
 ### Our Hyperparameters
 
-We didn't release the training datasets, but here are the commands we used for training our models:
+Here are the commands we used for training the models:
 
 ```bash
 # NOTE: ROOT path omitted for datasets
