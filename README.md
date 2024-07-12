@@ -3,7 +3,7 @@
 Official implementation of `DUSt3R: Geometric 3D Vision Made Easy`  
 [[Project page](https://dust3r.europe.naverlabs.com/)], [[DUSt3R arxiv](https://arxiv.org/abs/2312.14132)]  
 
-> **Make sure to also check [MASt3R](https://github.com/naver/mast3r): Our new model with a local feature head, metric depth, and a more scalable global alignment!**
+> **Make sure to also check [MASt3R](https://github.com/naver/mast3r): Our new model with a local feature head, metric pointmaps, and a more scalable global alignment!**
 
 ![Example of reconstruction from two images](assets/pipeline1.jpg)
 
