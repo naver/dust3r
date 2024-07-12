@@ -202,7 +202,9 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
                                            value='linear', label="schedule", info="For global alignment!")
                 niter = gradio.Number(value=300, precision=0, minimum=0, maximum=5000,
                                       label="num_iterations", info="For global alignment!")
-                scenegraph_type = gradio.Dropdown(["complete", "swin", "oneref"],
+                scenegraph_type = gradio.Dropdown([("complete: all possible image pairs", "complete"),
+                                                   ("swin: sliding window", "swin"),
+                                                   ("oneref: match one image with all", "oneref")],
                                                   value='complete', label="Scenegraph",
                                                   info="Define how to make pairs",
                                                   interactive=True)
