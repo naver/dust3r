@@ -43,16 +43,6 @@ class BlendedMVS (BaseStereoViewDataset):
     def get_stats(self):
         return f'{len(self)} pairs from {len(self.scenes)} scenes'
 
-    def select_one_scene(self, scene, img1=None, img2=None):
-        scene_low = int(scene[-16:], 16)
-        valid = (self.pairs['seq_low'] == scene_low)
-        if img1:
-            valid &= (self.pairs['img1'] == int(img1))
-        if img2:
-            valid &= (self.pairs['img2'] == int(img2))
-        self.pairs = self.pairs[valid]
-        self._compute_pair_probas()
-
     def _get_views(self, pair_idx, resolution, rng):
         seqh, seql, img1, img2, score = self.pairs[pair_idx]
 
@@ -80,7 +70,7 @@ class BlendedMVS (BaseStereoViewDataset):
                 depthmap=depthmap,
                 camera_pose=camera_pose,  # cam2world
                 camera_intrinsics=intrinsics,
-                dataset='Waymo',
+                dataset='BlendedMVS',
                 label=osp.relpath(seq_path, self.ROOT),
                 instance=impath))
 
