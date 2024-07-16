@@ -340,7 +340,7 @@ torchrun --nproc_per_node=4 train.py \
     --test_criterion "Regr3D_ScaleShiftInv(L21, gt_scale=True)" \
     --pretrained "checkpoints/dust3r_demo_512/checkpoint-best.pth" \
     --lr 0.0001 --min_lr 1e-06 --warmup_epochs 1 --epochs 10 --batch_size 2 --accum_iter 8 \
-    --save_freq 1 --keep_freq 5 --eval_freq 1 \
+    --save_freq 1 --keep_freq 5 --eval_freq 1 --disable_cudnn_benchmark \
     --output_dir "checkpoints/dust3r_demo_512dpt"
 
 ```
@@ -384,7 +384,7 @@ torchrun --nproc_per_node 8 train.py \
     --model="AsymmetricCroCo3DStereo(pos_embed='RoPE100', patch_embed_cls='ManyAR_PatchEmbed', img_size=(512, 512), head_type='dpt', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)" \
     --pretrained="checkpoints/dust3r_512/checkpoint-best.pth" \
     --lr=0.0001 --min_lr=1e-06 --warmup_epochs=15 --epochs=90 --batch_size=4 --accum_iter=2 \
-    --save_freq=5 --keep_freq=10 --eval_freq=1 --print_freq=10 \
+    --save_freq=5 --keep_freq=10 --eval_freq=1 --print_freq=10 --disable_cudnn_benchmark \
     --output_dir="checkpoints/dust3r_512dpt"
 
 ```

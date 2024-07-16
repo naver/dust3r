@@ -68,7 +68,7 @@ def get_args_parser():
 
     parser.add_argument('--amp', type=int, default=0,
                         choices=[0, 1], help="Use Automatic Mixed Precision for pretraining")
-
+    parser.add_argument("--disable_cudnn_benchmark", action='store_true', default=False, help="silence logs")
     # others
     parser.add_argument('--num_workers', default=8, type=int)
     parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')
@@ -112,7 +112,7 @@ def train(args):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    cudnn.benchmark = True
+    cudnn.benchmark = not args.disable_cudnn_benchmark
 
     # training dataset and loader
     print('Building train dataset {:s}'.format(args.train_dataset))
