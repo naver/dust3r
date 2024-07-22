@@ -20,7 +20,9 @@ from models.croco import CroCoNet  # noqa
 inf = float('inf')
 
 hf_version_number = huggingface_hub.__version__
-assert version.parse(hf_version_number) >= version.parse("0.22.0"), "Outdated huggingface_hub version, please reinstall requirements.txt"
+assert version.parse(hf_version_number) >= version.parse("0.22.0"), ("Outdated huggingface_hub version, "
+                                                                     "please reinstall requirements.txt")
+
 
 def load_model(model_path, device, verbose=True):
     if verbose:
@@ -76,7 +78,11 @@ class AsymmetricCroCo3DStereo (
         if os.path.isfile(pretrained_model_name_or_path):
             return load_model(pretrained_model_name_or_path, device='cpu')
         else:
-            return super(AsymmetricCroCo3DStereo, cls).from_pretrained(pretrained_model_name_or_path, **kw)
+            try:
+                model = super(AsymmetricCroCo3DStereo, cls).from_pretrained(pretrained_model_name_or_path, **kw)
+            except TypeError as e:
+                raise Exception(f'tried to load {pretrained_model_name_or_path} from huggingface, but failed')
+            return model
 
     def _set_patch_embed(self, img_size=224, patch_size=16, enc_embed_dim=768):
         self.patch_embed = get_patch_embed(self.patch_embed_cls, img_size, patch_size, enc_embed_dim)
@@ -93,9 +99,9 @@ class AsymmetricCroCo3DStereo (
     def set_freeze(self, freeze):  # this is for use by downstream models
         self.freeze = freeze
         to_be_frozen = {
-            'none':     [],
-            'mask':     [self.mask_token],
-            'encoder':  [self.mask_token, self.patch_embed, self.enc_blocks],
+            'none': [],
+            'mask': [self.mask_token],
+            'encoder': [self.mask_token, self.patch_embed, self.enc_blocks],
         }
         freeze_all_params(to_be_frozen[freeze])
 
