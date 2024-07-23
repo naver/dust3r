@@ -6,6 +6,8 @@
 # --------------------------------------------------------
 import argparse
 import math
+import builtins
+import datetime
 import gradio
 import os
 import torch
@@ -46,6 +48,19 @@ def get_args_parser():
     parser.add_argument("--silent", action='store_true', default=False,
                         help="silence logs")
     return parser
+
+
+def set_print_with_timestamp(time_format="%Y-%m-%d %H:%M:%S"):
+    builtin_print = builtins.print
+
+    def print_with_timestamp(*args, **kwargs):
+        now = datetime.datetime.now()
+        formatted_date_time = now.strftime(time_format)
+
+        builtin_print(f'[{formatted_date_time}] ', end='')  # print with time stamp
+        builtin_print(*args, **kwargs)
+
+    builtins.print = print_with_timestamp
 
 
 def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, cam_size=0.05,
