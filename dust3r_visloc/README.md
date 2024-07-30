@@ -88,6 +88,6 @@ python3 visloc.py --model_name MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt --datas
 
 # Cambridge Landmarks:
 # scene in 'ShopFacade' 'GreatCourt' 'KingsCollege' 'OldHospital' 'StMarysChurch'
-python3 visloc.py --model_name DUSt3R_ViTLarge_BaseDecoder_512_dpt --dataset "VislocCambridgeLandmarks('/path/to/prepared/Cambridge_Landmarks/', subscene='${scene}', pairsfile='APGeM-LM18_top20', topk=1)" --pnp_mode poselib --reprojection_error_diag_ratio 0.008 --output_dir /path/to/output/Cambridge_Landmarks/${scene}/loc
+python3 visloc.py --model_name DUSt3R_ViTLarge_BaseDecoder_512_dpt --dataset "VislocCambridgeLandmarks('/path/to/prepared/Cambridge_Landmarks/', subscene='${scene}', pairsfile='APGeM-LM18_top50', topk=20)" --pnp_mode poselib --reprojection_error_diag_ratio 0.008 --output_dir /path/to/output/Cambridge_Landmarks/${scene}/loc
 
 ```
