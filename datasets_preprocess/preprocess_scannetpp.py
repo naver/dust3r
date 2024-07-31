@@ -174,7 +174,7 @@ def undistort_images(intrinsics, rgb, mask):
     undistorted_image = cv2.remap(rgb, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
     undistorted_mask = cv2.remap(mask, map1, map2, interpolation=cv2.INTER_LINEAR,
                                  borderMode=cv2.BORDER_CONSTANT, borderValue=255)
-    K = geometry.opencv_to_colmap_intrinsics(K)
+    new_K = geometry.opencv_to_colmap_intrinsics(new_K)
     return width, height, new_K, undistorted_image, undistorted_mask
 
 
