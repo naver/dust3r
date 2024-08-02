@@ -228,8 +228,8 @@ class BaseVislocColmapDataset(BaseVislocDataset):
         distortion_coefs = infos['distortion']
 
         pts2d = infos['sparse_pts2d']
-        sparse_pos2d = np.float32(list(pts2d.values()))  # pts2d from colmap
-        sparse_pts3d = np.float32([self.points3D[i] for i in pts2d])
+        sparse_pos2d = np.float32(list(pts2d.values())).reshape((-1, 2))  # pts2d from colmap
+        sparse_pts3d = np.float32([self.points3D[i] for i in pts2d]).reshape((-1, 3))
 
         # store full resolution 2D->3D
         sparse_pos2d_cv2 = sparse_pos2d.copy()
