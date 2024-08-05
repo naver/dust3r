@@ -84,7 +84,7 @@ python3 visloc.py --model_name DUSt3R_ViTLarge_BaseDecoder_512_dpt --dataset "Vi
 
 # 7-scenes:
 # scene in 'chess' 'fire' 'heads' 'office' 'pumpkin' 'redkitchen' 'stairs'
-python3 visloc.py --model_name MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt --dataset "VislocSevenScenes('/path/to/prepared/7-scenes/', subscene='${scene}', pairsfile='APGeM-LM18_top20', topk=1)" --pnp_mode poselib --reprojection_error_diag_ratio 0.008 --output_dir /path/to/output/7-scenes/${scene}/loc
+python3 visloc.py --model_name DUSt3R_ViTLarge_BaseDecoder_512_dpt --dataset "VislocSevenScenes('/path/to/prepared/7-scenes/', subscene='${scene}', pairsfile='APGeM-LM18_top20', topk=1)" --pnp_mode poselib --reprojection_error_diag_ratio 0.008 --output_dir /path/to/output/7-scenes/${scene}/loc
 
 # Cambridge Landmarks:
 # scene in 'ShopFacade' 'GreatCourt' 'KingsCollege' 'OldHospital' 'StMarysChurch'
