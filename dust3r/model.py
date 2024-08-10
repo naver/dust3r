@@ -4,6 +4,7 @@
 # --------------------------------------------------------
 # DUSt3R model class
 # --------------------------------------------------------
+# just revising small things
 from copy import deepcopy
 import torch
 import os
