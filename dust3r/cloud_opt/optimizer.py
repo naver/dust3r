@@ -4,6 +4,8 @@
 # --------------------------------------------------------
 # Main class for the implementation of the global alignment
 # --------------------------------------------------------
+import math
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -199,6 +201,18 @@ class PointCloudOptimizer(BasePCOptimizer):
         lj = self.dist(proj_pts3d[self._ej], aligned_pred_j, weight=self._weight_j).sum() / self.total_area_j
 
         return li + lj
+
+    def get_apple_model(self, u, v):
+        x = self.a * np.cos(u) * np.cos(v) + self.apple_g(u, v) * self.normal(u, v)
+        y = self.b * np.cos(u) * np.sin(v) + self.apple_g(u, v) * self.normal(u, v)
+        z = self.c * np.sin(u) + self.apple_g(u, v) * self.normal(u, v)
+        return x, y, z
+
+    def normal(self, u, v):
+        return
+
+    def apple_g(self, u, v):
+        return -self.p1 * math.e ** (-2 * u) - self.p2 * math.e ** (2 * u)
 
 
 def _fast_depthmap_to_pts3d(depth, pixel_grid, focal, pp):

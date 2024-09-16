@@ -39,7 +39,7 @@ from croco.utils.misc import NativeScalerWithGradNormCount as NativeScaler  # no
 def get_args_parser():
     parser = argparse.ArgumentParser('DUST3R training', add_help=False)
     # model and criterion
-    parser.add_argument('--model', default="AsymmetricCroCo3DStereo(patch_embed_cls='ManyAR_PatchEmbed')",
+    parser.add_argument('--model', default="AsymmetricCroCo3DStereo(patch_embed_cls='ManyAR_PatchEmbed', img_size=(224, 224))",
                         type=str, help="string containing the model to build")
     parser.add_argument('--pretrained', default=None, help='path of a starting checkpoint')
     parser.add_argument('--train_criterion', default="ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)",
@@ -303,11 +303,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             print("Loss is {}, stopping training".format(loss_value), force=True)
             sys.exit(1)
 
-        loss /= accum_iter
-        loss_scaler(loss, optimizer, parameters=model.parameters(),
-                    update_grad=(data_iter_step + 1) % accum_iter == 0)
-        if (data_iter_step + 1) % accum_iter == 0:
-            optimizer.zero_grad()
+        if loss.item() == 0:
+            print('invalid loss, skip this batch')
+        else:
+            loss /= accum_iter
+            loss_scaler(loss, optimizer, parameters=model.parameters(),
+                        update_grad=(data_iter_step + 1) % accum_iter == 0)
+            if (data_iter_step + 1) % accum_iter == 0:
+                optimizer.zero_grad()
 
         del loss
         del batch
@@ -337,7 +340,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
-@torch.no_grad()
 def test_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                    data_loader: Sized, device: torch.device, epoch: int,
                    args, log_writer=None, prefix='test'):

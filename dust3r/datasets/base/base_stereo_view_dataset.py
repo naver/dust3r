@@ -90,24 +90,24 @@ class BaseStereoViewDataset (EasyDataset):
             view['true_shape'] = np.int32((height, width))
             view['img'] = self.transform(view['img'])
 
-            assert 'camera_intrinsics' in view
+            # assert 'camera_intrinsics' in view
             if 'camera_pose' not in view:
                 view['camera_pose'] = np.full((4, 4), np.nan, dtype=np.float32)
             else:
                 assert np.isfinite(view['camera_pose']).all(), f'NaN in camera pose for view {view_name(view)}'
             assert 'pts3d' not in view
             assert 'valid_mask' not in view
-            assert np.isfinite(view['depthmap']).all(), f'NaN in depthmap for view {view_name(view)}'
-            pts3d, valid_mask = depthmap_to_absolute_camera_coordinates(**view)
-
-            view['pts3d'] = pts3d
-            view['valid_mask'] = valid_mask & np.isfinite(pts3d).all(axis=-1)
+            # assert np.isfinite(view['depthmap']).all(), f'NaN in depthmap for view {view_name(view)}'
+            # pts3d, valid_mask = depthmap_to_absolute_camera_coordinates(**view)
+            #
+            # view['pts3d'] = pts3d
+            # view['valid_mask'] = valid_mask & np.isfinite(pts3d).all(axis=-1)
 
             # check all datatypes
             for key, val in view.items():
                 res, err_msg = is_good_type(key, val)
                 assert res, f"{err_msg} with {key}={val} for view {view_name(view)}"
-            K = view['camera_intrinsics']
+            # K = view['camera_intrinsics']
 
         # last thing done!
         for view in views:

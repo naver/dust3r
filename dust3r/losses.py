@@ -4,13 +4,20 @@
 # --------------------------------------------------------
 # Implementation of DUSt3R training losses
 # --------------------------------------------------------
+import collections
 from copy import copy, deepcopy
+
+import numpy as np
+import open3d as o3d
 import torch
 import torch.nn as nn
 
-from dust3r.inference import get_pred_pts3d, find_opt_scaling
-from dust3r.utils.geometry import inv, geotrf, normalize_pointcloud
+from apple_model.apple_optimizer import AppleOptimizer
+from dust3r.inference import get_pred_pts3d
 from dust3r.utils.geometry import get_joint_pointcloud_depth, get_joint_pointcloud_center_scale
+from dust3r.utils.geometry import inv, geotrf, normalize_pointcloud
+from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
+from dust3r.utils.device import collate_with_cat
 
 
 def Sum(*losses_and_masks):
@@ -31,7 +38,7 @@ class BaseCriterion(nn.Module):
         self.reduction = reduction
 
 
-class LLoss (BaseCriterion):
+class LLoss(BaseCriterion):
     """ L-norm loss
     """
 
@@ -51,17 +58,17 @@ class LLoss (BaseCriterion):
         raise NotImplementedError()
 
 
-class L21Loss (LLoss):
+class L21Loss(LLoss):
     """ Euclidean distance between 3d points  """
 
     def distance(self, a, b):
         return torch.norm(a - b, dim=-1)  # normalized L2 distance
 
 
-L21 = L21Loss()
+L21 = L21Loss(reduction='none')
 
 
-class Criterion (nn.Module):
+class Criterion(nn.Module):
     def __init__(self, criterion=None):
         super().__init__()
         assert isinstance(criterion, BaseCriterion), f'{criterion} is not a proper criterion!'
@@ -79,7 +86,7 @@ class Criterion (nn.Module):
         return res
 
 
-class MultiLoss (nn.Module):
+class MultiLoss(nn.Module):
     """ Easily combinable losses (also keep track of individual loss values):
         loss = MyLoss1() + 0.1*MyLoss2()
     Usage:
@@ -102,6 +109,7 @@ class MultiLoss (nn.Module):
         res = copy(self)
         res._alpha = alpha
         return res
+
     __rmul__ = __mul__  # same
 
     def __add__(self, loss2):
@@ -139,7 +147,7 @@ class MultiLoss (nn.Module):
         return loss, details
 
 
-class Regr3D (Criterion, MultiLoss):
+class Regr3D(Criterion, MultiLoss):
     """ Ensure that all 3D points are correct.
         Asymmetric loss: view1 is supposed to be the anchor.
 
@@ -194,7 +202,88 @@ class Regr3D (Criterion, MultiLoss):
         return Sum((l1, mask1), (l2, mask2)), (details | monitoring)
 
 
-class ConfLoss (MultiLoss):
+class CorrespondenceLoss(Criterion, MultiLoss):
+    def __init__(self, criterion, fitness_threshold=0.25, use_conf=True):
+        super().__init__(criterion)
+        self.loos_func = nn.MSELoss()
+        self.fitness_threshold = fitness_threshold
+        self.use_conf = use_conf
+
+    @staticmethod
+    def get_conf_log(x):
+        return x, torch.log(x)
+
+    @staticmethod
+    def make_copy_and_auto_grad(item):
+        item_copy = deepcopy(item)
+        keyword = ['pts3d', 'conf', 'img']
+        for k, v in item_copy.items():
+            if isinstance(v, torch.Tensor) and v.dtype == torch.float32:
+                item_copy[k] = v.requires_grad_(True)
+        return item_copy
+
+    def compute_loss(self, gt1, gt2, pred1, pred2, **kw):
+        # global alignment
+        gt1_copy = self.make_copy_and_auto_grad(gt1)
+        gt2_copy = self.make_copy_and_auto_grad(gt2)
+        gt1_copy['idx'] = [0, 1]
+        gt2_copy['idx'] = [1, 0]
+
+        output = {'view1': gt1_copy, 'view2': gt2_copy, 'pred1': pred1, 'pred2': pred2}
+        scene = global_aligner(output, device='cuda', mode=GlobalAlignerMode.PointCloudOptimizer)
+        _loss = scene.compute_global_alignment(init="mst", niter=300, schedule='cosine', lr=0.01)
+
+        # retrieve useful values from scene:
+        pts3d = scene.get_pts3d()
+        masks = gt1['mask'].detach().cpu().tolist()
+        conf_masks_, conf_mask_log = self.get_conf_log(pred1['conf'])
+        conf_masks = [conf_masks_[0], conf_masks_[1]]
+
+        points_with_grad = []
+        conf = []
+        for pts, mask, conf_mask in zip(pts3d, masks, conf_masks):
+            for i in range(pts.shape[0]):
+                for j in range(pts.shape[1]):
+                    if mask[i][j] == 255:
+                        points_with_grad.append(pts[i][j])
+                        conf.append(conf_mask[i][j])
+
+        points = np.asarray(list(map(lambda x: x.detach().cpu(), points_with_grad)))
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+
+        optimizer = AppleOptimizer(target=pcd)
+        optimizer.opt_with_cpd()
+        reg_res = optimizer.reg_res
+        loss = torch.zeros(1)
+        if optimizer.reg_res.fitness < self.fitness_threshold:
+            return loss
+        correspondence = np.asarray(reg_res.correspondence_set)
+        matching_dict = collections.defaultdict(list)
+        inp = []
+        target = []
+        conf_values = []
+        # source from ideal model, target from prediction
+        for source_idx, target_idx in correspondence:
+            matching_dict[target_idx].append(optimizer.optimized_model.pcd.points[source_idx])
+        for target_idx, p_list in matching_dict.items():
+            inp.append(points_with_grad[target_idx])
+            conf_values.append(conf[target_idx])
+            target.append(np.mean(np.asarray(p_list), axis=0))
+        conf_values = torch.stack(conf_values)
+        loss = self.criterion(torch.stack(inp), torch.tensor(np.asarray(target)).cuda())
+
+        if self.use_conf:
+            loss = torch.matmul(loss.float(), conf_values) / loss.shape[0]
+        else:
+            loss = loss.mean()
+
+        self_name = type(self).__name__
+        details = {self_name + '_apple_loss': float(loss.mean())}
+        return loss, details
+
+
+class ConfLoss(MultiLoss):
     """ Weighted regression by learned confidence.
         Assuming the input pixel_loss is a pixel-level regression loss.
 
@@ -210,6 +299,7 @@ class ConfLoss (MultiLoss):
         assert alpha > 0
         self.alpha = alpha
         self.pixel_loss = pixel_loss.with_reduction('none')
+        # self.apple_align_loss =
 
     def get_name(self):
         return f'ConfLoss({self.pixel_loss})'
@@ -238,7 +328,7 @@ class ConfLoss (MultiLoss):
         return conf_loss1 + conf_loss2, dict(conf_loss_1=float(conf_loss1), conf_loss2=float(conf_loss2), **details)
 
 
-class Regr3D_ShiftInv (Regr3D):
+class Regr3D_ShiftInv(Regr3D):
     """ Same than Regr3D but invariant to depth shift.
     """
 
@@ -263,7 +353,7 @@ class Regr3D_ShiftInv (Regr3D):
         return gt_pts1, gt_pts2, pred_pts1, pred_pts2, mask1, mask2, monitoring
 
 
-class Regr3D_ScaleInv (Regr3D):
+class Regr3D_ScaleInv(Regr3D):
     """ Same than Regr3D but invariant to depth shift.
         if gt_scale == True: enforce the prediction to take the same scale than GT
     """
@@ -294,6 +384,6 @@ class Regr3D_ScaleInv (Regr3D):
         return gt_pts1, gt_pts2, pred_pts1, pred_pts2, mask1, mask2, monitoring
 
 
-class Regr3D_ScaleShiftInv (Regr3D_ScaleInv, Regr3D_ShiftInv):
+class Regr3D_ScaleShiftInv(Regr3D_ScaleInv, Regr3D_ShiftInv):
     # calls Regr3D_ShiftInv first, then Regr3D_ScaleInv
     pass
