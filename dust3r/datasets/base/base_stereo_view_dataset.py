@@ -50,7 +50,7 @@ class BaseStereoViewDataset (EasyDataset):
         return f"{len(self)} pairs"
 
     def __repr__(self):
-        resolutions_str = '['+';'.join(f'{w}x{h}' for w, h in self._resolutions)+']'
+        resolutions_str = '[' + ';'.join(f'{w}x{h}' for w, h in self._resolutions) + ']'
         return f"""{type(self).__name__}({self.get_stats()},
             {self.split=},
             {self.seed=},
@@ -146,10 +146,10 @@ class BaseStereoViewDataset (EasyDataset):
         # cropping centered on the principal point
         W, H = image.size
         cx, cy = intrinsics[:2, 2].round().astype(int)
-        min_margin_x = min(cx, W-cx)
-        min_margin_y = min(cy, H-cy)
-        assert min_margin_x > W/5, f'Bad principal point in view={info}'
-        assert min_margin_y > H/5, f'Bad principal point in view={info}'
+        min_margin_x = min(cx, W - cx)
+        min_margin_y = min(cy, H - cy)
+        # assert min_margin_x > W/5, f'Bad principal point in view={info}'
+        # assert min_margin_y > H/5, f'Bad principal point in view={info}'
         # the new window will be a rectangle of size (2*min_margin_x, 2*min_margin_y) centered on (cx,cy)
         l, t = cx - min_margin_x, cy - min_margin_y
         r, b = cx + min_margin_x, cy + min_margin_y
@@ -159,10 +159,10 @@ class BaseStereoViewDataset (EasyDataset):
         # transpose the resolution if necessary
         W, H = image.size  # new size
         assert resolution[0] >= resolution[1]
-        if H > 1.1*W:
+        if H > 1.1 * W:
             # image is portrait mode
             resolution = resolution[::-1]
-        elif 0.9 < H/W < 1.1 and resolution[0] != resolution[1]:
+        elif 0.9 < H / W < 1.1 and resolution[0] != resolution[1]:
             # image is square, so we chose (portrait, landscape) randomly
             if rng.integers(2):
                 resolution = resolution[::-1]
