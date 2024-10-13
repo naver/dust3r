@@ -32,7 +32,7 @@ if __name__ == '__main__':
     niter = 300
 
     # model_name = "./checkpoints/DUSt3R_ViTLarge_BaseDecoder_224_linear.pth"
-    model_name = "./output/checkpoint-best.pth"
+    model_name = "./output/5cycles_fitness_0916/checkpoint-best.pth"
     # you can put the path to a local checkpoint in model_name if needed
     model = AsymmetricCroCo3DStereo.from_pretrained(model_name).to(device)
     # load_images can take a list of images or a directory

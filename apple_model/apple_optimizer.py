@@ -15,7 +15,7 @@ class AppleOptimizer:
     def __init__(self, target):
         self.target_original = copy.deepcopy(target)
         self.target = target.voxel_down_sample(0.05)
-        self.init_param = np.asarray([0.51265244, 0.51242454, 0.51235608, 0.01, 0.01])
+        self.init_param = np.asarray([0.51265244, 0.51242454, 0.51, 0.01, 0.01])
         self.bounds = [(0, 1), (0, 1), (0, 1), (0, 0.1), (0, 0.1)]
         self.opt_res = None
         self.optimized_model = None
@@ -24,7 +24,8 @@ class AppleOptimizer:
         self.max_correspondence_distance = 0.025
         self.dense_grid_size = 100
         self.sparse_grid_size = 30
-        self.partial_ratio = 0.65
+        self.v_partial_ratio = 0.9
+        self.u_partial_ratio = 0.9
 
     @staticmethod
     def draw_registration_result(source, target, transformation=None, reg_res=None):
@@ -52,15 +53,16 @@ class AppleOptimizer:
 
     def cpd_align(self, source):
         # create a RigidRegistration object
-        reg = pycpd.RigidRegistration(X=np.asarray(self.target.points), Y=np.asarray(source.points), w=0.2,
-                                      max_iterations=500)
+        reg = pycpd.RigidRegistration(X=np.asarray(self.target.points), Y=np.asarray(source.points), w=0,
+                                      max_iterations=1000)
         # run the registration & collect the results
         TY, trans = reg.register()
         return TY, trans, reg
 
     def cpd_objective(self, inp):
         # CPD register with current parameter
-        source_model = AppleModel(inp, sample_step=self.sparse_grid_size, v_range=self.partial_ratio)
+        source_model = AppleModel(inp, sample_step=self.sparse_grid_size, v_partial=self.v_partial_ratio,
+                                  u_partial=self.u_partial_ratio)
         inp = tuple(inp)
         try:
             if inp in self.reg_dict:
@@ -77,6 +79,10 @@ class AppleOptimizer:
             print('Objective Calculation Error: {}'.format(e))
             return 5.0
         print('input parameters = {}'.format(reg_res))
+
+        if reg_res.inlier_rmse == 0:
+            return 5
+
         return reg_res.inlier_rmse
 
     def opt_with_cpd(self):
@@ -90,6 +96,15 @@ class AppleOptimizer:
         self.opt_res = res.x
         self.optimized_model = AppleModel(self.opt_res, sample_step=self.dense_grid_size)
 
+        viewer = o3d.visualization.Visualizer()
+        viewer.create_window()
+        for geometry in [self.optimized_model.pcd, self.target]:
+            viewer.add_geometry(geometry)
+        opt = viewer.get_render_option()
+        opt.show_coordinate_frame = False
+        viewer.run()
+        viewer.destroy_window()
+
         # self.optimized_model = AppleModel(self.opt_res, sample_step=self.sparse_grid_size, v_range=self.partial_ratio)
 
         reg = self.reg_dict[tuple(self.opt_res)]
@@ -102,5 +117,5 @@ class AppleOptimizer:
                                                                         self.max_correspondence_distance,
                                                                         transformation=numpy.eye(4))
         print('final reg results = {}'.format(self.reg_res))
-        o3d.visualization.draw_geometries([self.optimized_model.pcd, self.target_original, self.optimized_model.axis])
+        # o3d.visualization.draw_geometries([self.optimized_model.pcd, self.target_original, self.optimized_model.axis])
         # self.draw_registration_result(self.optimized_model.pcd, self.target_original, reg_res=self.reg_res)

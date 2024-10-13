@@ -98,8 +98,9 @@ def train(args):
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     # auto resume
-    last_ckpt_fname = os.path.join(args.output_dir, f'checkpoint-last.pth')
-    args.resume = last_ckpt_fname if os.path.isfile(last_ckpt_fname) else None
+    # last_ckpt_fname = os.path.join(args.output_dir, f'checkpoint-last.pth')
+    # args.resume = last_ckpt_fname if os.path.isfile(last_ckpt_fname) else None
+    args.resume = None
 
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
     print("{}".format(args).replace(', ', ',\n'))

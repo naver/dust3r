@@ -13,9 +13,6 @@ from dust3r.model import AsymmetricCroCo3DStereo
 from dust3r.utils.image import load_images
 from apple_model.apple_optimizer import AppleOptimizer
 from apple_model.correspondence_loss import CorrespondenceLoss
-from fill_void.surface_recon import run_surface_recon
-from fill_void.calculate_height_dia import run_cal_height_dia
-from get_scaled_metrics import scale_pred
 
 
 def calculate_surface_curvature(pcd, radius=0.1, max_nn=30):
@@ -28,15 +25,6 @@ def calculate_surface_curvature(pcd, radius=0.1, max_nn=30):
 
 
 def rotate(apple_model, target_pcd):
-    # viewer = o3d.visualization.Visualizer()
-    # viewer.create_window()
-    # for geometry in [apple_model.pcd, apple_model.axis, target_pcd]:
-    #     viewer.add_geometry(geometry)
-    # opt = viewer.get_render_option()
-    # opt.show_coordinate_frame = True
-    # viewer.run()
-    # viewer.destroy_window()
-
     axis = apple_model.axis.points
     normal = np.asarray(axis[0] - axis[1])
     unit_normal = normal / np.linalg.norm(normal)
@@ -59,7 +47,7 @@ def rotate(apple_model, target_pcd):
     apple_model.pcd.points = o3d.utility.Vector3dVector(np.dot(apple_model.pcd.points, axis.T))
     apple_model.axis.points = o3d.utility.Vector3dVector(np.dot(apple_model.axis.points, axis.T))
 
-    # o3d.visualization.draw_geometries([apple_model.pcd, apple_model.axis])
+    o3d.visualization.draw_geometries([apple_model.pcd, apple_model.axis])
 
     p = apple_model.axis.points
     dist_after = np.linalg.norm(np.asarray(p[0] - p[1]))
@@ -67,16 +55,7 @@ def rotate(apple_model, target_pcd):
 
     target_pcd.points = o3d.utility.Vector3dVector(np.dot(target_pcd.points, axis.T))
 
-    o3d.io.write_point_cloud('aligned.ply', apple_model.pcd + target_pcd)
-
-    viewer = o3d.visualization.Visualizer()
-    viewer.create_window()
-    for geometry in [apple_model.pcd, apple_model.axis, target_pcd]:
-        viewer.add_geometry(geometry)
-    opt = viewer.get_render_option()
-    opt.show_coordinate_frame = True
-    viewer.run()
-    viewer.destroy_window()
+    o3d.io.write_point_cloud('fill_void/aligned.ply', apple_model.pcd + target_pcd)
 
 
 if __name__ == '__main__':
@@ -86,19 +65,13 @@ if __name__ == '__main__':
     lr = 0.01
     niter = 1000
 
-    idx1, idx2 = [4, 6]
     # model_name = "./checkpoints/DUSt3R_ViTLarge_BaseDecoder_224_linear.pth"
     model_name = "output/checkpoint-best.pth"
 
-    # you can put the path to a local checkpoint in model_name if needed
     model = AsymmetricCroCo3DStereo.from_pretrained(model_name).to(device)
     # load_images can take a list of images or a directory
-    data_root_dir = r'D:\Projects\dust3r\data\eval_data\eval8'
-    gt_metrics = [74.5, 84.4, 88.72, 337.5]
-
-    images = load_images([os.path.join(data_root_dir, 'images_cropped', '0000000{}.jpg'.format(idx1)),
-                          os.path.join(data_root_dir, 'images_cropped', '0000000{}.jpg'.format(idx2))],
-                         size=224)
+    data_root = r'D:\datasets\apple\defect_ratio_test'
+    images = load_images(os.path.join(data_root, 'subset'), size=224)
     pairs = make_pairs(images, scene_graph='complete', prefilter=None, symmetrize=True)
     output = inference(pairs, model, device, batch_size=batch_size)
 
@@ -123,6 +96,9 @@ if __name__ == '__main__':
     scene = global_aligner(output, device=device, mode=GlobalAlignerMode.PointCloudOptimizer)
     loss = scene.compute_global_alignment(init="mst", niter=niter, schedule=schedule, lr=lr)
 
+    # visualize reconstruction
+    # scene.show()
+
     # retrieve useful values from scene:
     imgs = scene.imgs
     focals = scene.get_focals()
@@ -131,24 +107,62 @@ if __name__ == '__main__':
     confidence_masks = scene.get_masks()
 
     # load mask
-    mask1 = np.load(os.path.join(data_root_dir, 'masks_cropped', '0000000{}.npy'.format(idx1)))
-    mask2 = np.load(os.path.join(data_root_dir, 'masks_cropped', '0000000{}.npy'.format(idx2)))
-    masks = [mask1, mask2]
-
+    image_names = sorted(os.listdir(os.path.join(data_root, 'subset')))
+    masks = []
+    for name in image_names:
+        mask = np.load(os.path.join(data_root, 'masks_cropped', name.replace('jpg', 'npy')))
+        masks.append(mask)
     pcd = o3d.geometry.PointCloud()
     points = []
     points_with_grad = []
-    for pts, mask in zip(pts3d, masks):
-        for i in range(pts.shape[0]):
-            for j in range(pts.shape[1]):
-                if mask[i][j] == 255:
-                    points_with_grad.append(pts[i][j])
+    colors = []
+    for pts, mask, image in zip(pts3d, masks, imgs):
+        for row in range(pts.shape[0]):
+            for column in range(pts.shape[1]):
+                if mask[row][column] == 255:
+                    points_with_grad.append(pts[row][column])
+                    if max(image[row][column]) < 0.3:
+                        colors.append([0, 0, 0])
+                    else:
+                        colors.append(image[row][column])
 
     points = np.asarray(list(map(lambda x: x.detach().cpu(), points_with_grad)))
 
     pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(colors)
     pcd.estimate_normals()
     pcd.orient_normals_consistent_tangent_plane(k=20)
+    # o3d.visualization.draw_geometries_with_editing([pcd])
+
+    # 点云清理
+    voxel_down_pcd = pcd.voxel_down_sample(0.025)
+    pcd, ind = voxel_down_pcd.remove_radius_outlier(nb_points=5, radius=0.5)
+    o3d.visualization.draw_geometries_with_editing([pcd])
+
+    o3d.io.write_point_cloud('./bad_apple.ply', pcd)
+
+
+    # pcd_colors = np.asarray(pcd.colors)
+    # bad_idxes = []
+    # for idx, color in pcd_colors:
+    #     if max(colors) < 0.5:
+    #         bad_idxes.ap
+
+    radii = [0.001, 0.005, 0.01, 0.02, 0.04, 0.08, 0.1]
+    rec_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(
+        pcd, 0.2)
+    o3d.visualization.draw_geometries([pcd, rec_mesh])
+
+    sampled_pcd = rec_mesh.sample_points_uniformly(number_of_points=10000)
+    o3d.visualization.draw_geometries_with_editing([sampled_pcd])
+
+    mesh_tensor = o3d.t.geometry.TriangleMesh.from_legacy(rec_mesh)
+    mesh_tensor.fill_holes()
+    o3d.visualization.draw([{'name': 'filled', 'geometry': mesh_tensor}])
+
+    rec_mesh.get_surface_area()
+
+    # o3d.visualization.draw_geometries([pcd])
 
     # curvature = calculate_surface_curvature(pcd)
     # normed_curvatue = (curvature - np.min(curvature)) / (np.max(curvature) - np.min(curvature))
@@ -162,50 +176,4 @@ if __name__ == '__main__':
     print('opt res = {}'.format(optimizer.opt_res))
     # o3d.io.write_point_cloud(r'D:\Projects\dust3r\fill_void\res.pcd', optimizer.optimized_model.pcd)
     # o3d.io.write_point_cloud(r'D:\Projects\dust3r\fill_void\target.pcd', optimizer.target_original)
-    # optimizer.vis_res()
-
-    # visualize reconstruction
-    # scene.show()
-
-    # find 2D-2D matches between the two images
-    # from dust3r.utils.geometry import find_reciprocal_matches, xy_grid
-    #
-    # pts2d_list, pts3d_list = [], []
-    # for i in range(2):
-    #     conf_i = confidence_masks[i].cpu().numpy()
-    #     pts2d_list.append(xy_grid(*imgs[i].shape[:2][::-1])[conf_i])  # imgs[i].shape[:2] = (H, W)
-    #     pts3d_list.append(pts3d[i].detach().cpu().numpy()[conf_i])
-    # reciprocal_in_P2, nn2_in_P1, num_matches = find_reciprocal_matches(*pts3d_list)
-    # print(f'found {num_matches} matches')
-    # matches_im1 = pts2d_list[1][reciprocal_in_P2]
-    # matches_im0 = pts2d_list[0][nn2_in_P1][reciprocal_in_P2]
-
-    # visualize a few matches
-    # import numpy as np
-    # from matplotlib import pyplot as pl
-    #
-    # n_viz = 10
-    # match_idx_to_viz = np.round(np.linspace(0, num_matches - 1, n_viz)).astype(int)
-    # viz_matches_im0, viz_matches_im1 = matches_im0[match_idx_to_viz], matches_im1[match_idx_to_viz]
-    #
-    # H0, W0, H1, W1 = *imgs[0].shape[:2], *imgs[1].shape[:2]
-    # img0 = np.pad(imgs[0], ((0, max(H1 - H0, 0)), (0, 0), (0, 0)), 'constant', constant_values=0)
-    # img1 = np.pad(imgs[1], ((0, max(H0 - H1, 0)), (0, 0), (0, 0)), 'constant', constant_values=0)
-    # img = np.concatenate((img0, img1), axis=1)
-    # pl.figure()
-    # pl.imshow(img)
-    # cmap = pl.get_cmap('jet')
-    # for i in range(n_viz):
-    #     (x0, y0), (x1, y1) = viz_matches_im0[i].T, viz_matches_im1[i].T
-    #     pl.plot([x0, x1 + W0], [y0, y1], '-+', color=cmap(i / (n_viz - 1)), scalex=False, scaley=False)
-    # pl.show(block=True)
-
-    # reconstruct surface
-    volume = run_surface_recon(model_path='aligned.ply')
-
-    # get height and dia
-    dia1, dia2, height = run_cal_height_dia(model_path='tmp_surface.ply')
-
-    # get scaled metrics
-    pred_metrics = [height, dia1, dia2, volume]
-    scale, scaled_pred = scale_pred(gt_metrics, pred_metrics)
+    optimizer.vis_res()

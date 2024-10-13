@@ -6,7 +6,7 @@ import pickle
 
 
 class AppleModel:
-    def __init__(self, params, sample_step, v_range=1.0):
+    def __init__(self, params, sample_step, v_partial=1.0, u_partial=1.0):
         if isinstance(params, list):
             self.a, self.b, self.c, self.p1, self.p2 = params
         elif isinstance(params, np.ndarray):
@@ -14,13 +14,10 @@ class AppleModel:
         self.pcd = o3d.geometry.PointCloud()
         self.uv = []
         self.valid_idx = []
-        self.v_range = v_range
-        # u_pos = np.concatenate([-self.powspace(0, np.pi / 2,  0.7, sample_step//2)[::-1],
-        #                         self.powspace(0, np.pi / 2,  0.7, sample_step//2)])
         u_pos = np.linspace(-np.pi / 2, np.pi / 2, num=sample_step)
         for u in u_pos:
             for v in np.linspace(0, 2 * np.pi, num=sample_step):
-                if v <= v_range * 2 * np.pi:
+                if v <= v_partial * 2 * np.pi and u <= (-np.pi / 2) + (np.pi * u_partial):
                     self.valid_idx.append(len(self.uv))
                 self.uv.append((u, v))
         self.get_apple_points()
@@ -52,7 +49,7 @@ class AppleModel:
         points = np.asarray(points)
         self.pcd.points = o3d.utility.Vector3dVector(points)
         self.pcd.estimate_normals()
-        self.pcd.orient_normals_consistent_tangent_plane(k=50)
+        self.pcd.orient_normals_consistent_tangent_plane(k=20)
         self.add_disturb()
         self.remove_partial()
         # self.remove_outliers()
@@ -79,10 +76,12 @@ def display_inlier_outlier(cloud, ind):
 
 
 if __name__ == '__main__':
-    param = np.asarray([0.51265244, 0.51242454, 0.53797388, 0.01, 0.01])
-    apple = AppleModel(params=param, sample_step=30, v_range=1)
+    # param = np.asarray([0.51265244, 0.51242454, 0.53797388, 0.01, 0.01])
+    param = np.asarray([0.51265244, 0.51242454, 0.5123, 0.01, 0.01])
+    apple = AppleModel(params=param, sample_step=100, v_partial=0.65, u_partial=0.66)
     o3d.visualization.draw_geometries([apple.pcd])
     voxel_down_pcd = apple.pcd.voxel_down_sample(voxel_size=0.01)
-    cl, ind = voxel_down_pcd.remove_radius_outlier(nb_points=2, radius=0.1)
+    cl, ind = voxel_down_pcd.remove_radius_outlier(nb_points=1, radius=0.1)
+    o3d.visualization.draw_geometries([cl])
     display_inlier_outlier(voxel_down_pcd, ind)
     o3d.visualization.draw_geometries([cl])
