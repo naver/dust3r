@@ -70,13 +70,13 @@ def _resize_pil_image(img, long_edge_size):
     return img.resize(new_size, interp)
 
 
-def load_images(folder_or_list, size, square_ok=False, verbose=True):
+def load_images(folder_or_list, size, square_ok=False, verbose=True, skip_frames=0, ground_truth=False):
     """ open and convert all images in a list or folder to proper input format for DUSt3R
     """
     if isinstance(folder_or_list, str):
         if verbose:
             print(f'>> Loading images from {folder_or_list}')
-        root, folder_content = folder_or_list, sorted(os.listdir(folder_or_list))
+        root, folder_content = folder_or_list, sorted([file for file in os.listdir(folder_or_list) if os.path.isfile(os.path.join(folder_or_list,file))], key=lambda x: int(os.path.splitext(x)[0]))
 
     elif isinstance(folder_or_list, list):
         if verbose:
@@ -85,6 +85,9 @@ def load_images(folder_or_list, size, square_ok=False, verbose=True):
 
     else:
         raise ValueError(f'bad {folder_or_list=} ({type(folder_or_list)})')
+    
+    #skip frames equally space with the skip_frames parameter
+    folder_content = [folder_content[i] for i in range(0, len(folder_content), skip_frames+1)]
 
     supported_images_extensions = ['.jpg', '.jpeg', '.png']
     if heif_support_enabled:
@@ -118,7 +121,23 @@ def load_images(folder_or_list, size, square_ok=False, verbose=True):
         if verbose:
             print(f' - adding {path} with resolution {W1}x{H1} --> {W2}x{H2}')
         imgs.append(dict(img=ImgNorm(img)[None], true_shape=np.int32(
-            [img.size[::-1]]), idx=len(imgs), instance=str(len(imgs))))
+            [img.size[::-1]]), idx=len(imgs), instance=str(len(imgs)),
+            path=os.path.join(root, path)))
+
+    if ground_truth:
+        # go two directories behind and start loading each GT mask
+        gt_folder = os.path.join(root, '..', '..','..')
+        gt_folder = os.path.join(gt_folder, 'Annotations', "480p", folder_or_list.split('/')[-1])
+        assert os.path.isdir(gt_folder), f'No GT folder found at {gt_folder}'
+
+        for img in imgs:
+            img['gt'] = imread_cv2(os.path.join(gt_folder, os.path.basename(img['path']).split(".")[0]+".png"), \
+                                   options=cv2.IMREAD_GRAYSCALE)
+            
+            img["gt"] = img["gt"]  / img["gt"].max()
+            
+            img['gt'] = cv2.resize(img['gt'], (img['img'].shape[3], img['img'].shape[2]), interpolation=cv2.INTER_NEAREST)
+
 
     assert imgs, 'no images foud at '+root
     if verbose:

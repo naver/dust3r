@@ -168,25 +168,36 @@ class AsymmetricCroCo3DStereo (
 
         return (shape1, shape2), (feat1, feat2), (pos1, pos2)
 
-    def _decoder(self, f1, pos1, f2, pos2):
-        final_output = [(f1, f2)]  # before projection
+    def _decoder(self, f1, pos1, f2=None, pos2=None):
 
-        # project to decoder dim
+        if f2 == None and pos2 == None:
+            f2 = f1
+            pos2 = pos1
+            
+        # Initialize final output with the initial features before projection
+        final_output = [(f1, f2)]  # before projection # final_output[0] = (f1, f2)
+
+        # Project features to decoder dimension
         f1 = self.decoder_embed(f1)
         f2 = self.decoder_embed(f2)
 
-        final_output.append((f1, f2))
+        # Append the projected features to final output
+        final_output.append((f1, f2)) # final_output[1] = (f1, f2), after projection
+        
+        # Pass through each decoder block
         for blk1, blk2 in zip(self.dec_blocks, self.dec_blocks2):
-            # img1 side
+            # Process img1 side
             f1, _ = blk1(*final_output[-1][::+1], pos1, pos2)
-            # img2 side
+            # Process img2 side
             f2, _ = blk2(*final_output[-1][::-1], pos2, pos1)
-            # store the result
+            # Store the result
             final_output.append((f1, f2))
 
-        # normalize last output
-        del final_output[1]  # duplicate with final_output[0]
+        # Normalize the last output
+        del final_output[1]  # Remove duplicate with final_output[0]
         final_output[-1] = tuple(map(self.dec_norm, final_output[-1]))
+        
+        # Return the final output as a zip object
         return zip(*final_output)
 
     def _downstream_head(self, head_num, decout, img_shape):

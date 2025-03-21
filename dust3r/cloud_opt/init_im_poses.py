@@ -73,6 +73,10 @@ def init_minimum_spanning_tree(self, **kw):
                                                           self.pred_i, self.pred_j, self.conf_i, self.conf_j, self.im_conf, self.min_conf_thr,
                                                           device, has_im_poses=self.has_im_poses, verbose=self.verbose,
                                                           **kw)
+    
+
+    # from here, i have 3d points of each camera in the world frame
+    # and the position of each camera in the wrld frame
 
     return init_from_pts3d(self, pts3d, im_focals, im_poses)
 
@@ -111,7 +115,11 @@ def init_from_pts3d(self, pts3d, im_focals, im_poses):
         for i in range(self.n_imgs):
             cam2world = im_poses[i]
             depth = geotrf(inv(cam2world), pts3d[i])[..., 2]
-            self._set_depthmap(i, depth)
+
+            ## FORCING in initialization
+            self._set_depthmap(i, depth, force=True)
+            print("forces setting depthmaps")
+
             self._set_pose(self.im_poses, i, cam2world)
             if im_focals[i] is not None:
                 self._set_focal(i, im_focals[i])
@@ -131,7 +139,7 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
 
     todo = sorted(zip(-msp.data, msp.row, msp.col))  # sorted edges
     im_poses = [None] * n_imgs
-    im_focals = [None] * n_imgs
+    im_focals = [None] * n_imgs 
 
     # init with strongest edge
     score, i, j = todo.pop()
@@ -147,6 +155,8 @@ def minimum_spanning_tree(imshapes, edges, pred_i, pred_j, conf_i, conf_j, im_co
 
     # set initial pointcloud based on pairwise graph
     msp_edges = [(i, j)]
+
+    #pts3d are in the wrld frame, the ref frame of the first edge
     while todo:
         # each time, predict the next one
         score, i, j = todo.pop()

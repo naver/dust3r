@@ -38,7 +38,11 @@ class PointCloudOptimizer(BasePCOptimizer):
         self.max_area = max(im_areas)
 
         # adding thing to optimize
-        self.im_depthmaps = ParameterStack(self.im_depthmaps, is_param=True, fill=self.max_area)
+        self.im_depthmaps = ParameterStack(self.im_depthmaps, is_param=False, fill=self.max_area)
+
+        ###### REMOVE DEPTHMAPS AS PARAMS TO OPTIMIZE ######
+        self.im_depthmaps.requires_grad_(True)
+
         self.im_poses = ParameterStack(self.im_poses, is_param=True)
         self.im_focals = ParameterStack(self.im_focals, is_param=True)
         self.im_pp = ParameterStack(self.im_pp, is_param=True)
@@ -176,6 +180,7 @@ class PointCloudOptimizer(BasePCOptimizer):
 
         # get pointmaps in camera frame
         rel_ptmaps = _fast_depthmap_to_pts3d(depth, self._grid, focals, pp=pp)
+
         # project to world frame
         return geotrf(im_poses, rel_ptmaps)
 
@@ -191,10 +196,10 @@ class PointCloudOptimizer(BasePCOptimizer):
         proj_pts3d = self.get_pts3d(raw=True)
 
         # rotate pairwise prediction according to pw_poses
-        aligned_pred_i = geotrf(pw_poses, pw_adapt * self._stacked_pred_i)
-        aligned_pred_j = geotrf(pw_poses, pw_adapt * self._stacked_pred_j)
+        aligned_pred_i = geotrf(pw_poses, pw_adapt * self._stacked_pred_i) # i in wlrd frame
+        aligned_pred_j = geotrf(pw_poses, pw_adapt * self._stacked_pred_j) # j in wlrd frame
 
-        # compute the less
+        # compute the loss
         li = self.dist(proj_pts3d[self._ei], aligned_pred_i, weight=self._weight_i).sum() / self.total_area_i
         lj = self.dist(proj_pts3d[self._ej], aligned_pred_j, weight=self._weight_j).sum() / self.total_area_j
 
@@ -208,7 +213,7 @@ def _fast_depthmap_to_pts3d(depth, pixel_grid, focal, pp):
     assert pp.shape == (len(depth), 1, 2)
     assert pixel_grid.shape == depth.shape + (2,)
     depth = depth.unsqueeze(-1)
-    return torch.cat((depth * (pixel_grid - pp) / focal, depth), dim=-1)
+    return torch.cat((depth * (pixel_grid - pp) / focal, depth), dim=-1)  # xyz
 
 
 def ParameterStack(params, keys=None, is_param=None, fill=0):

@@ -23,6 +23,7 @@ from dust3r.cloud_opt.commons import (edge_str, ALL_DISTS, NoGradParamDict, get_
                                       cosine_schedule, linear_schedule, get_conf_trf)
 import dust3r.cloud_opt.init_im_poses as init_fun
 
+import cv2
 
 class BasePCOptimizer (nn.Module):
     """ Optimize a global scene, given a list of pairwise observations.
@@ -247,6 +248,7 @@ class BasePCOptimizer (nn.Module):
         pw_poses = self.get_pw_poses()  # cam-to-world
         pw_adapt = self.get_adaptors()
         proj_pts3d = self.get_pts3d()
+        
         # pre-compute pixel weights
         weight_i = {i_j: self.conf_trf(c) for i_j, c in self.conf_i.items()}
         weight_j = {i_j: self.conf_trf(c) for i_j, c in self.conf_j.items()}
@@ -258,14 +260,15 @@ class BasePCOptimizer (nn.Module):
         for e, (i, j) in enumerate(self.edges):
             i_j = edge_str(i, j)
             # distance in image i and j
-            aligned_pred_i = geotrf(pw_poses[e], pw_adapt[e] * self.pred_i[i_j])
-            aligned_pred_j = geotrf(pw_poses[e], pw_adapt[e] * self.pred_j[i_j])
+            aligned_pred_i = geotrf(pw_poses[e], pw_adapt[e] * self.pred_i[i_j]) # i in wlrd coordinates
+            aligned_pred_j = geotrf(pw_poses[e], pw_adapt[e] * self.pred_j[i_j]) # j in wrld coordinates
             li = self.dist(proj_pts3d[i], aligned_pred_i, weight=weight_i[i_j]).mean()
             lj = self.dist(proj_pts3d[j], aligned_pred_j, weight=weight_j[i_j]).mean()
             loss = loss + li + lj
 
             if ret_details:
                 details[i, j] = li + lj
+                
         loss /= self.n_edges  # average over all pairs
 
         if ret_details:
@@ -362,6 +365,8 @@ def global_alignment_iter(net, cur_iter, niter, lr_base, lr_min, optimizer, sche
     loss = net()
     loss.backward()
     optimizer.step()
+
+    #cv2.imwrite(f"test_images/{cur_iter}.png", (optimizer.param_groups[0]["params"][1][1,:].reshape(288,512).cpu().detach().numpy() / optimizer.param_groups[0]["params"][1][1,:].reshape(512,288).cpu().detach().numpy().max())*255)
 
     return float(loss), lr
 
