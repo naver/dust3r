@@ -137,7 +137,7 @@ def train(args):
 
     if args.pretrained and not args.resume:
         print('Loading pretrained: ', args.pretrained)
-        ckpt = torch.load(args.pretrained, map_location=device)
+        ckpt = torch.load(args.pretrained, map_location=device, weights_only=False)
         print(model.load_state_dict(ckpt['model'], strict=False))
         del ckpt  # in case it occupies memory
 
