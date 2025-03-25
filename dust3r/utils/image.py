@@ -12,6 +12,7 @@ from PIL.ImageOps import exif_transpose
 import torchvision.transforms as tvf
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 import cv2  # noqa
+from PIL import Image 
 
 try:
     from pillow_heif import register_heif_opener  # noqa
@@ -69,40 +70,54 @@ def _resize_pil_image(img, long_edge_size):
     new_size = tuple(int(round(x*long_edge_size/S)) for x in img.size)
     return img.resize(new_size, interp)
 
+def preprocess_ir_rgb(img_rgb,img_ir):
 
-def load_images(folder_or_list, size, square_ok=False, verbose=True):
-    """ open and convert all images in a list or folder to proper input format for DUSt3R
-    """
-    if isinstance(folder_or_list, str):
-        if verbose:
-            print(f'>> Loading images from {folder_or_list}')
-        root, folder_content = folder_or_list, sorted(os.listdir(folder_or_list))
+    img_ir_array = np.array(img_ir, dtype=np.float32)
+    # Normalize to range [0, 255] for 8-bit conversion
+    img_ir_8bit = ((img_ir_array - img_ir_array.min()) / (img_ir_array.max() - img_ir_array.min()) * 255).astype(np.uint8)
 
-    elif isinstance(folder_or_list, list):
-        if verbose:
-            print(f'>> Loading a list of {len(folder_or_list)} images')
-        root, folder_content = '', folder_or_list
+    # Convert back to PIL image for visualization
+    img_ir_8bit_pil = Image.fromarray(img_ir_8bit)
 
-    else:
-        raise ValueError(f'bad {folder_or_list=} ({type(folder_or_list)})')
+    # Convert to NumPy array
+    img_ir_array = np.array(img_ir_8bit_pil)
+    # Threshold to detect the dark borders 
+    threshold = 0 
+    cols_mean = img_ir_array.mean(axis=0)  # Compute column-wise mean
+    valid_cols = np.where(cols_mean > threshold)[0]  # Find valid (non-dark) columns
 
-    supported_images_extensions = ['.jpg', '.jpeg', '.png']
-    if heif_support_enabled:
-        supported_images_extensions += ['.heic', '.heif']
-    supported_images_extensions = tuple(supported_images_extensions)
+    # Crop based on valid columns
+    left, right = valid_cols[0], valid_cols[-1]
+    img_ir_cropped = img_ir.crop((left, 0, right, img_ir.height))
+    img_cropped = img_rgb.crop((left, 0, right, img_rgb.height))
+
+    # Resize to match RGB image dimensions
+    img_ir_resized = img_ir_cropped.resize(img_rgb.size)
+    img_rgb = img_cropped.resize(img_rgb.size)
+
+    # Apply CLAHE (Adaptive Histogram Equalization)
+    clahe = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(8, 8))
+    img_ir_array = np.array(img_ir_resized)
+    img_ir = clahe.apply(img_ir_array )
+    img_ir = Image.fromarray(img_ir)
+    
+    return img_rgb,img_ir,
+
+def load_images(img_list, size, square_ok=False, verbose=False):
+    """ Open and convert all images in a list or folder to proper input format for DUSt3R """
+    
+    # Ensure img_list is a list
+    if not isinstance(img_list, list):
+        img_list = [img_list]
 
     imgs = []
-    for path in folder_content:
-        if not path.lower().endswith(supported_images_extensions):
-            continue
-        img = exif_transpose(PIL.Image.open(os.path.join(root, path))).convert('RGB')
+    for idx, img in enumerate(img_list):
         W1, H1 = img.size
         if size == 224:
-            # resize short side to 224 (then crop)
             img = _resize_pil_image(img, round(size * max(W1/H1, H1/W1)))
         else:
-            # resize long side to 512
             img = _resize_pil_image(img, size)
+        
         W, H = img.size
         cx, cy = W//2, H//2
         if size == 224:
@@ -110,17 +125,19 @@ def load_images(folder_or_list, size, square_ok=False, verbose=True):
             img = img.crop((cx-half, cy-half, cx+half, cy+half))
         else:
             halfw, halfh = ((2*cx)//16)*8, ((2*cy)//16)*8
-            if not (square_ok) and W == H:
-                halfh = 3*halfw/4
+            if not square_ok and W == H:
+                halfh = 3 * halfw / 4
             img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
 
         W2, H2 = img.size
         if verbose:
-            print(f' - adding {path} with resolution {W1}x{H1} --> {W2}x{H2}')
-        imgs.append(dict(img=ImgNorm(img)[None], true_shape=np.int32(
-            [img.size[::-1]]), idx=len(imgs), instance=str(len(imgs))))
+            print(f' - adding {idx} with resolution {W1}x{H1} --> {W2}x{H2}')
 
-    assert imgs, 'no images foud at '+root
-    if verbose:
-        print(f' (Found {len(imgs)} images)')
-    return imgs
+        imgs.append({
+            'img': ImgNorm(img)[None], 
+            'true_shape': np.int32([img.size[::-1]]), 
+            'idx': len(imgs), 
+            'instance': str(len(imgs))
+        })
+
+    return imgs[0] if len(imgs) == 1 else imgs  

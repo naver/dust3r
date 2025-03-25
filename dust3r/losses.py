@@ -157,6 +157,9 @@ class Regr3D (Criterion, MultiLoss):
 
     def get_all_pts3d(self, gt1, gt2, pred1, pred2, dist_clip=None):
         # everything is normalized w.r.t. camera of view1
+        # print(gt1.keys())--dict_keys(['img', 'depthmap', 'camera_intrinsics', 'dataset', 'label', 'instance', 'idx', 'true_shape', 'camera_pose', 'pts3d', 'valid_mask', 'rng'])
+        # print(pred1.keys())-->dict_keys(['pts3d', 'conf'])
+
         in_camera1 = inv(gt1['camera_pose'])
         gt_pts1 = geotrf(in_camera1, gt1['pts3d'])  # B,H,W,3
         gt_pts2 = geotrf(in_camera1, gt2['pts3d'])  # B,H,W,3
@@ -238,6 +241,38 @@ class ConfLoss (MultiLoss):
         return conf_loss1 + conf_loss2, dict(conf_loss_1=float(conf_loss1), conf_loss2=float(conf_loss2), **details)
 
 
+class DepthAccuracyLoss(MultiLoss):
+    def __init__(self):
+        super().__init__()
+
+    def compute_loss(self, gt1, gt2, pred1, pred2, **kw):
+
+        # Compute the L2 loss for depth (between predicted and ground truth depth)
+        depth_pred = pred1['pts3d'][..., 2]  # Extract the predicted depth (z-coordinate)
+        gt_depthmap = gt1["depthmap"].to(depth_pred.device)
+        # l1 = self.criterion(depth_pred,gt_depthmap)
+        depth_loss = torch.sqrt(torch.mean((depth_pred - gt_depthmap)**2))
+
+        # # Compute accuracy-based loss (Threshold-based accuracy)
+        # threshold = torch.max(depth_pred / gt_depthmap, gt_depthmap / depth_pred)
+        # acc_1_25 = torch.mean((threshold < 1.25).float())  # Accuracy with threshold 1.25
+        # acc_1_25_2 = torch.mean((threshold < 1.25**2).float())  # Accuracy with threshold 1.25^2
+
+
+
+        # Track individual losses for debugging or analysis
+        details = {
+            "RMSE Loss": depth_loss.item(),
+            # "Accuracy < 1.25": acc_1_25.item(),
+            # "Accuracy < 1.25^2": acc_1_25_2.item(),
+        }
+
+        return depth_loss, details
+
+    def get_name(self):
+        return "Depth "
+    
+    
 class Regr3D_ShiftInv (Regr3D):
     """ Same than Regr3D but invariant to depth shift.
     """

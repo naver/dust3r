@@ -129,7 +129,7 @@ def train(args):
     print(f'>> Creating train criterion = {args.train_criterion}')
     train_criterion = eval(args.train_criterion).to(device)
     print(f'>> Creating test criterion = {args.test_criterion or args.train_criterion}')
-    # test_criterion = eval(args.test_criterion or args.criterion).to(device)
+    test_criterion = eval(args.test_criterion or args.criterion).to(device)
 
     model.to(device)
     model_without_ddp = model
@@ -202,26 +202,25 @@ def train(args):
         if (epoch > 0 and args.eval_freq > 0 and epoch % args.eval_freq == 0):
             test_stats = {}
             for test_name, testset in data_loader_test.items():
-                print("test not working")
-                # stats = test_one_epoch(model, test_criterion, testset,
-                #                        device, epoch, log_writer=log_writer, args=args, prefix=test_name)
-                # test_stats[test_name] = stats
+                stats = test_one_epoch(model, test_criterion, testset,
+                                       device, epoch, log_writer=log_writer, args=args, prefix=test_name)
+                test_stats[test_name] = stats
 
-        #         # Save best of all
-        #         if stats['loss_med'] < best_so_far:
-        #             best_so_far = stats['loss_med']
-        #             new_best = True
+                # Save best of all
+                if stats['loss_med'] < best_so_far:
+                    best_so_far = stats['loss_med']
+                    new_best = True
 
-        # # Save more stuff
-        # write_log_stats(epoch, train_stats, test_stats)
+        # Save more stuff
+        write_log_stats(epoch, train_stats, test_stats)
 
-        # if epoch > args.start_epoch:
-        #     if args.keep_freq and epoch % args.keep_freq == 0:
-        #         save_model(epoch - 1, str(epoch), best_so_far)
-        #     if new_best:
-        #         save_model(epoch - 1, 'best', best_so_far)
-        # if epoch >= args.epochs:
-        #     break  # exit after writing last test to disk
+        if epoch > args.start_epoch:
+            if args.keep_freq and epoch % args.keep_freq == 0:
+                save_model(epoch - 1, str(epoch), best_so_far)
+            if new_best:
+                save_model(epoch - 1, 'best', best_so_far)
+        if epoch >= args.epochs:
+            break  # exit after writing last test to disk
 
         # Train
         train_stats = train_one_epoch(
