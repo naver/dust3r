@@ -62,10 +62,10 @@ class freiburgDataset(BaseStereoViewDataset):
         for view_index in [fm1, fm2]:
             data = seq_frames[f"{view_index}"].item()
             IR_img_path = data["IR_aligned_path"]
+            ir_img = Image.open(str(IR_img_path))
             rgb_path = data["RGB_path"]
-            ir = Image.open(IR_img_path)
-            rgb,ir_img = preprocess_ir_rgb(rgb_path,IR_img_path)
-            ir_img=load_images(ir_img)
+            rgb_image = Image.open(str(rgb_path))
+            rgb,ir_img = preprocess_ir_rgb(rgb_image,ir_img)
             depthmap = data["Depth"]
             intrinsics =np.float32( data["Camera_intrinsic"])
             camera_pose = np.float32(data["camera_pose"])     
@@ -84,15 +84,14 @@ class freiburgDataset(BaseStereoViewDataset):
         for i in range(2):
             data = self.frames[f"{pair_idx}"].item()
             IR_img_path = data["IR_aligned_path"]
-            image = Image.open(IR_img_path)
+            ir_img = Image.open(str(IR_img_path))
             rgb_path = data["RGB_path"]
-            ir = Image.open(IR_img_path)
-            rgb,ir_img = preprocess_ir_rgb(rgb_path,IR_img_path)
-            ir_img=load_images(ir_img)
+            rgb_image = Image.open(str(rgb_path))
+            rgb,ir_img = preprocess_ir_rgb(rgb_image,ir_img)
             depthmap = data["Depth"]
             intrinsics =np.float32( data["Camera_intrinsic"])
             views.append(dict(
-                    img=image,
+                    img=ir_img,
                     depthmap=depthmap,
                     camera_intrinsics=intrinsics,
                     dataset='freiburg',
@@ -118,6 +117,6 @@ class freiburgDataset(BaseStereoViewDataset):
 if __name__ == "__main__":
 
     
-    train_ds = freiburgDataset(ROOT="/home/user/elwakeely1/DataParam",method="RANSAC", split = "Train",resolution=224, aug_crop=16)
+    train_ds = freiburgDataset(ROOT="/home/user/elwakeely1/DataParam",method="PNP", split = "Test",resolution=224, aug_crop=16)
     views = train_ds[0]
-    print(views[0])
+    print(views[0]["img"])

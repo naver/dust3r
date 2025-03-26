@@ -72,15 +72,14 @@ def _resize_pil_image(img, long_edge_size):
 
 def preprocess_ir_rgb(img_rgb,img_ir):
 
-    img_ir_array = np.array(img_ir, dtype=np.float32)
-    # Normalize to range [0, 255] for 8-bit conversion
-    img_ir_8bit = ((img_ir_array - img_ir_array.min()) / (img_ir_array.max() - img_ir_array.min()) * 255).astype(np.uint8)
-
-    # Convert back to PIL image for visualization
-    img_ir_8bit_pil = Image.fromarray(img_ir_8bit)
-
     # Convert to NumPy array
-    img_ir_array = np.array(img_ir_8bit_pil)
+    arr = np.array(img_ir, dtype=np.float32)
+
+    # Normalize to range 0-255
+    arr = (arr - arr.min()) / (arr.max() - arr.min()) * 255  # Normalize between 0-255
+    arr = arr.astype(np.uint8)  # Convert to 8-bit
+    img_ir = Image.fromarray(arr)
+    img_ir_array = np.array(img_ir)
     # Threshold to detect the dark borders 
     threshold = 0 
     cols_mean = img_ir_array.mean(axis=0)  # Compute column-wise mean
@@ -99,7 +98,7 @@ def preprocess_ir_rgb(img_rgb,img_ir):
     clahe = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(8, 8))
     img_ir_array = np.array(img_ir_resized)
     img_ir = clahe.apply(img_ir_array )
-    img_ir = Image.fromarray(img_ir)
+    img_ir = Image.fromarray(img_ir).convert("RGB")
     
     return img_rgb,img_ir,
 
@@ -134,7 +133,7 @@ def load_images(img_list, size, square_ok=False, verbose=False):
             print(f' - adding {idx} with resolution {W1}x{H1} --> {W2}x{H2}')
 
         imgs.append({
-            'img': ImgNorm(img)[None], 
+            'img': img, 
             'true_shape': np.int32([img.size[::-1]]), 
             'idx': len(imgs), 
             'instance': str(len(imgs))
