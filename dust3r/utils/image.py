@@ -102,41 +102,26 @@ def preprocess_ir_rgb(img_rgb,img_ir):
     
     return img_rgb,img_ir,
 
-def load_images(img_list, size, square_ok=False, verbose=False):
+def load_images(img, size, square_ok=False, verbose=False):
     """ Open and convert all images in a list or folder to proper input format for DUSt3R """
+
+    W1, H1 = img.size
+    if size == 224:
+        img = _resize_pil_image(img, round(size * max(W1/H1, H1/W1)))
+    else:
+        img = _resize_pil_image(img, size)
     
-    # Ensure img_list is a list
-    if not isinstance(img_list, list):
-        img_list = [img_list]
+    W, H = img.size
+    cx, cy = W//2, H//2
+    if size == 224:
+        half = min(cx, cy)
+        img = img.crop((cx-half, cy-half, cx+half, cy+half))
+    else:
+        halfw, halfh = ((2*cx)//16)*8, ((2*cy)//16)*8
+        if not square_ok and W == H:
+            halfh = 3 * halfw / 4
+        img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
 
-    imgs = []
-    for idx, img in enumerate(img_list):
-        W1, H1 = img.size
-        if size == 224:
-            img = _resize_pil_image(img, round(size * max(W1/H1, H1/W1)))
-        else:
-            img = _resize_pil_image(img, size)
-        
-        W, H = img.size
-        cx, cy = W//2, H//2
-        if size == 224:
-            half = min(cx, cy)
-            img = img.crop((cx-half, cy-half, cx+half, cy+half))
-        else:
-            halfw, halfh = ((2*cx)//16)*8, ((2*cy)//16)*8
-            if not square_ok and W == H:
-                halfh = 3 * halfw / 4
-            img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
+    W2, H2 = img.size
 
-        W2, H2 = img.size
-        if verbose:
-            print(f' - adding {idx} with resolution {W1}x{H1} --> {W2}x{H2}')
-
-        imgs.append({
-            'img': img, 
-            'true_shape': np.int32([img.size[::-1]]), 
-            'idx': len(imgs), 
-            'instance': str(len(imgs))
-        })
-
-    return imgs[0] if len(imgs) == 1 else imgs  
+    return img  

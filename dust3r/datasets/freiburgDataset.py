@@ -66,6 +66,7 @@ class freiburgDataset(BaseStereoViewDataset):
             rgb_path = data["RGB_path"]
             rgb_image = Image.open(str(rgb_path))
             rgb,ir_img = preprocess_ir_rgb(rgb_image,ir_img)
+            ir_img = load_images(ir_img,size =224)
             depthmap = data["Depth"]
             intrinsics =np.float32( data["Camera_intrinsic"])
             camera_pose = np.float32(data["camera_pose"])     
@@ -88,6 +89,7 @@ class freiburgDataset(BaseStereoViewDataset):
             rgb_path = data["RGB_path"]
             rgb_image = Image.open(str(rgb_path))
             rgb,ir_img = preprocess_ir_rgb(rgb_image,ir_img)
+            ir_img = load_images(ir_img,size =224)
             depthmap = data["Depth"]
             intrinsics =np.float32( data["Camera_intrinsic"])
             views.append(dict(
@@ -117,6 +119,6 @@ class freiburgDataset(BaseStereoViewDataset):
 if __name__ == "__main__":
 
     
-    train_ds = freiburgDataset(ROOT="/home/user/elwakeely1/DataParam",method="PNP", split = "Test",resolution=224, aug_crop=16)
+    train_ds = freiburgDataset(ROOT="/home/user/elwakeely1/DataParam",method="RANSAC", split = "Test",resolution=224, aug_crop=16)
     views = train_ds[0]
-    print(views[0]["img"])
+    print(views[0]["img"].shape)
