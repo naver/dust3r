@@ -23,6 +23,7 @@ if __name__ == '__main__':
     for i in tqdm.tqdm(range(len(test_dataset)), desc="Processing sequence", unit="img"):
         img_path = test_dataset[i]["fl_ir_aligned"]
         images = load_images([str(img_path),str(img_path)], size=224)
+        print(type(images))
         pairs = make_pairs(images, scene_graph='complete', prefilter=None, symmetrize=True)
         output = inference(pairs, model, device, batch_size=batch_size)
 

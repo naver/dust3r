@@ -241,7 +241,7 @@ class ConfLoss (MultiLoss):
         return conf_loss1 + conf_loss2, dict(conf_loss_1=float(conf_loss1), conf_loss2=float(conf_loss2), **details)
 
 
-class DepthAccuracyLoss(MultiLoss):
+class RMSE_scaleInv(MultiLoss):
     def __init__(self):
         super().__init__()
 
@@ -251,7 +251,12 @@ class DepthAccuracyLoss(MultiLoss):
         depth_pred = pred1['pts3d'][..., 2]  # Extract the predicted depth (z-coordinate)
         gt_depthmap = gt1["depthmap"].to(depth_pred.device)
         # l1 = self.criterion(depth_pred,gt_depthmap)
-        depth_loss = torch.sqrt(torch.mean((depth_pred - gt_depthmap)**2))
+        # depth_loss = torch.sqrt(torch.mean((depth_pred - gt_depthmap)**2))
+
+        
+        epsilon = 1e-8  # To avoid log(0)
+        log_diff = torch.log(depth_pred + epsilon) - torch.log(gt_depthmap + epsilon)
+        loss = torch.sqrt(torch.mean(log_diff ** 2) - (torch.mean(log_diff) ** 2))
 
         # # Compute accuracy-based loss (Threshold-based accuracy)
         # threshold = torch.max(depth_pred / gt_depthmap, gt_depthmap / depth_pred)
@@ -260,14 +265,14 @@ class DepthAccuracyLoss(MultiLoss):
 
 
 
-        # Track individual losses for debugging or analysis
+        # # Track individual losses for debugging or analysis
         details = {
-            "RMSE Loss": depth_loss.item(),
+            "RMSE Loss": loss.item(),
             # "Accuracy < 1.25": acc_1_25.item(),
             # "Accuracy < 1.25^2": acc_1_25_2.item(),
         }
 
-        return depth_loss, details
+        return loss, details
 
     def get_name(self):
         return "Depth "
