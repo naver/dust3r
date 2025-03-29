@@ -104,22 +104,29 @@ def preprocess_ir_rgb(img_rgb,img_ir):
 
 
 
-def load_images_test(images, size, square_ok=False, verbose=True):
+def load_images_dust3r(images,i=0,train=True):
     """ open and convert all images in a list or folder to proper input format for DUSt3R
     """
     imgs = []
     for img in images:
-
-        imgs.append({
-            'img': img.unsqueeze(0), 
-            'true_shape': np.int32([[224,224]]), 
-            'idx': 0, 
-            'instance': 0
-        })
+        if train:
+            imgs.append({
+                'img': ImgNorm(img)[None],  
+                'true_shape': np.int32([img.size[::-1]]),  
+                'idx': i,  
+                'instance': str(i)  
+            })
+        else:
+            imgs.append({
+                'img': img.unsqueeze(0), 
+                'true_shape': np.int32([[224,224]]), 
+                'idx': i, 
+                'instance': str(i)
+            })
 
     return imgs 
 
-def load_images(img, size, square_ok=False, verbose=False):
+def resize_img(img, size, square_ok=False):
     """ Open and convert all images in a list or folder to proper input format for DUSt3R """
 
     W1, H1 = img.size
@@ -139,6 +146,21 @@ def load_images(img, size, square_ok=False, verbose=False):
             halfh = 3 * halfw / 4
         img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
 
-    W2, H2 = img.size
 
     return img  
+
+def load_images(img_list, size, square_ok=False,train = True):
+    """Open and convert all images in a list or folder to proper input format for DUSt3R"""
+    
+    # Ensure img_list is a list
+    if not isinstance(img_list, list):
+        img_list = [img_list]
+
+    imgs = []
+    
+    for idx, img in enumerate(img_list):
+        img = resize_img(img, size, square_ok)
+        dust3r_images = load_images_dust3r([img],idx,train)  
+        imgs.append(dust3r_images[0])  
+
+    return imgs[0] if len(imgs) == 1 else imgs

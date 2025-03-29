@@ -11,7 +11,7 @@ import glob
 import sys
 sys.path.append("/home/user/elwakeely1/dust3r")
 from dust3r.datasets.base.base_stereo_view_dataset import BaseStereoViewDataset
-from dust3r.utils.image import load_images,preprocess_ir_rgb
+from dust3r.utils.image import resize_img,preprocess_ir_rgb
 from dust3r.datasets.base.base_stereo_view_dataset import view_name
 from dust3r.viz import SceneViz, auto_cam_size
 from dust3r.utils.image import rgb
@@ -66,7 +66,7 @@ class freiburgDataset(BaseStereoViewDataset):
             rgb_path = data["RGB_path"]
             rgb_image = Image.open(str(rgb_path))
             rgb,ir_img = preprocess_ir_rgb(rgb_image,ir_img)
-            ir_img = load_images(ir_img,size =224)
+            ir_img = resize_img(ir_img,size =224)
             depthmap = data["Depth"]
             intrinsics =np.float32( data["Camera_intrinsic"])
             camera_pose = np.float32(data["camera_pose"])     
@@ -89,7 +89,7 @@ class freiburgDataset(BaseStereoViewDataset):
             rgb_path = data["RGB_path"]
             rgb_image = Image.open(str(rgb_path))
             rgb,ir_img = preprocess_ir_rgb(rgb_image,ir_img)
-            ir_img = load_images(ir_img,size =224)
+            ir_img = resize_img(ir_img,size =224)
             depthmap = data["Depth"]
             intrinsics =np.float32( data["Camera_intrinsic"])
             views.append(dict(
