@@ -152,6 +152,7 @@ def resize_img(img, size, square_ok=False):
 def load_images(img_list, size, square_ok=False,train = True):
     """Open and convert all images in a list or folder to proper input format for DUSt3R"""
     
+
     # Ensure img_list is a list
     if not isinstance(img_list, list):
         img_list = [img_list]
@@ -159,8 +160,11 @@ def load_images(img_list, size, square_ok=False,train = True):
     imgs = []
     
     for idx, img in enumerate(img_list):
-        img = resize_img(img, size, square_ok)
-        dust3r_images = load_images_dust3r([img],idx,train)  
+        if not train:
+            dust3r_images = load_images_dust3r([img],idx,train=train)
+        else :
+            img = resize_img(img, size, square_ok)
+            dust3r_images = load_images_dust3r([img],idx,train=train)  
         imgs.append(dust3r_images[0])  
 
     return imgs[0] if len(imgs) == 1 else imgs
