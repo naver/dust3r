@@ -40,7 +40,7 @@ def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3):
 
         # find relative pose for this pair
         P1 = torch.eye(4, device=device)
-        msk = self.conf_i[i_j] > min(min_conf_thr, self.conf_i[i_j].min() - 0.1)
+        msk = self.conf_j[i_j] > min(min_conf_thr, self.conf_j[i_j].min() - 0.1)
         _, P2 = fast_pnp(self.pred_j[i_j], float(im_focals[i].mean()),
                          pp=im_pp[i], msk=msk, device=device, niter_PnP=niter_PnP)
 
@@ -51,7 +51,7 @@ def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3):
         self._set_pose(self.pw_poses, e, R, T, scale=s)
 
         # remember if this is a good depthmap
-        score = float(self.conf_i[i_j].mean())
+        score = float(self.conf_j[i_j].mean())
         if score > best_depthmaps.get(i, (0,))[0]:
             best_depthmaps[i] = score, i_j, s
 
