@@ -105,6 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--scenes_dir", required=True)
     parser.add_argument("--output_dir", required=True)
     parser.add_argument("--metadata_filename", default="")
+    parser.add_argument("--fix_existing_dataset", default=True)
 
     args = parser.parse_args()
 
@@ -112,10 +113,11 @@ if __name__ == "__main__":
         # Walk through the metadata dir to generate commandlines
         for filename in glob.iglob(os.path.join(args.metadata_dir, "**/metadata.json"), recursive=True):
             output_dir = os.path.join(args.output_dir, os.path.relpath(os.path.dirname(filename), args.metadata_dir))
-            if not os.path.exists(output_dir):
-                commandline = f"python {__file__} --metadata_filename={filename} --metadata_dir={args.metadata_dir} --scenes_dir={args.scenes_dir} --output_dir={output_dir}"
+            if not os.path.exists(output_dir) or args.fix_existing_dataset:
+                commandline = f"python {__file__} --metadata_filename={filename} --metadata_dir={args.metadata_dir} --scenes_dir={args.scenes_dir} --output_dir={output_dir} --fix_existing_dataset={args.fix_existing_dataset}"
                 print(commandline)
     else:
         preprocess_metadata(metadata_filename=args.metadata_filename,
                             scenes_dir=args.scenes_dir,
-                            output_dir=args.output_dir)
+                            output_dir=args.output_dir,
+                            fix_existing_dataset=args.fix_existing_dataset)
