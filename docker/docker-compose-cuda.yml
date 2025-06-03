@@ -9,8 +9,11 @@ services:
     environment:
       - DEVICE=cuda
       - MODEL=${MODEL:-DUSt3R_ViTLarge_BaseDecoder_512_dpt.pth}
+      - PYTHONPATH=/dust3r  # <--- ADD THIS LINE
     volumes:
       - ./files/checkpoints:/dust3r/checkpoints
+      - ./files/data:/dust3r/data
+      - ../:/dust3r
     cap_add:
       - IPC_LOCK
       - SYS_RESOURCE
