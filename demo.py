@@ -37,6 +37,8 @@ if __name__ == '__main__':
     else:
         weights_path = "naver/" + args.model_name
     model = AsymmetricCroCo3DStereo.from_pretrained(weights_path).to(args.device)
+    
+    print(f"Hosting on {server_name}:{args.server_port}")
 
     # dust3r will write the 3D model inside tmpdirname
     with tempfile.TemporaryDirectory(suffix='dust3r_gradio_demo') as tmpdirname:

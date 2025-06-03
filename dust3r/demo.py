@@ -280,4 +280,4 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
                                     inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
                                             clean_depth, transparent_cams, cam_size],
                                     outputs=outmodel)
-    demo.launch(share=False, server_name=server_name, server_port=server_port)
+    demo.launch(share=True, server_name=server_name, server_port=server_port)

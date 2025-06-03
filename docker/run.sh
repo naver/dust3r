@@ -35,10 +35,12 @@ set_dcomp() {
 run_docker() {
     export MODEL=${model_name}
     if [ "$with_cuda" -eq 1 ]; then
-        $dcomp -f docker-compose-cuda.yml up --build
+        $dcomp -f docker-compose-cuda.yml up --build -d
     else
-        $dcomp -f docker-compose-cpu.yml up --build
+        $dcomp -f docker-compose-cpu.yml up --build -d
     fi
+    echo "Docker container started in detached mode."
+    echo "To attach to the container, run: $dcomp exec dust3r-demo /bin/bash"
 }
 
 with_cuda=0
