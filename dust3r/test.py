@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import copy
 import glob
+import json
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
 
@@ -61,6 +62,26 @@ def main(model, args, basenames_list):
         # If optimization for each pair is desired, it can be added here.
         # For now, sticking to PairViewer for individual pair processing.
 
+        # Save camera parameters (intrinsics and poses)
+        if scene.get_intrinsics() is not None and scene.get_im_poses() is not None:
+            intrinsics_list = to_numpy(scene.get_intrinsics()).tolist()
+            im_poses_list = to_numpy(scene.get_im_poses()).tolist()
+            
+            camera_params = {
+                "intrinsics": intrinsics_list,
+                "im_poses": im_poses_list
+            }
+            
+            json_output_path = os.path.join(args.output_dir, f"{current_basename}_camera_parameters.json")
+            try:
+                with open(json_output_path, 'w') as f:
+                    json.dump(camera_params, f, indent=4)
+                print(f"Saved camera parameters to {json_output_path}")
+            except Exception as e:
+                print(f"Error saving camera parameters for {current_basename} to {json_output_path}: {e}")
+        else:
+            print(f"Warning: Could not retrieve intrinsics or poses for {current_basename}. Skipping camera parameter saving.")
+
         print("Saving RGB and Depth images...")
         rgb_images = scene.imgs
         depth_maps_tensor = scene.get_depthmaps()
@@ -80,10 +101,20 @@ def main(model, args, basenames_list):
             plt.imsave(right_rgb_path, rgb_images[1])
             print(f"Saved right RGB image to {right_rgb_path}")
 
+            # Save colored depth maps
             plt.imsave(left_depth_path, depth_maps[0], cmap='viridis')
-            print(f"Saved left depth image to {left_depth_path}")
+            print(f"Saved left colored depth image to {left_depth_path}")
             plt.imsave(right_depth_path, depth_maps[1], cmap='viridis')
-            print(f"Saved right depth image to {right_depth_path}")
+            print(f"Saved right colored depth image to {right_depth_path}")
+
+            # Save raw depth maps
+            left_depth_raw_path = os.path.join(args.output_dir, f"{current_basename}_left_depth_raw.png")
+            right_depth_raw_path = os.path.join(args.output_dir, f"{current_basename}_right_depth_raw.png")
+            
+            plt.imsave(left_depth_raw_path, depth_maps[0], cmap='gray')
+            print(f"Saved left raw depth image to {left_depth_raw_path}")
+            plt.imsave(right_depth_raw_path, depth_maps[1], cmap='gray')
+            print(f"Saved right raw depth image to {right_depth_raw_path}")
             
             print(f"Images saved successfully for {current_basename}.")
         else:
