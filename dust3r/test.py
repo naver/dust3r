@@ -7,6 +7,7 @@ import glob
 import json
 from scipy.spatial.transform import Rotation
 import matplotlib.pyplot as plt
+import time
 
 # DUSt3R imports
 from dust3r.model import load_model, AsymmetricCroCo3DStereo
@@ -15,6 +16,7 @@ from dust3r.image_pairs import make_pairs
 from dust3r.utils.image import load_images
 from dust3r.utils.device import to_numpy
 from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
+from dust3r.demo import get_3D_model_from_scene
 
 # MODIFIED: main now takes model and a list of basenames
 def main(model, args, basenames_list):
@@ -22,6 +24,8 @@ def main(model, args, basenames_list):
     if not basenames_list:
         print("No image pair basenames to process.")
         return
+
+    all_inference_times = []
 
     for current_basename in basenames_list:
         print(f"\n--- Processing basename: {current_basename} ---")
@@ -46,7 +50,13 @@ def main(model, args, basenames_list):
         
         pairs = make_pairs(loaded_imgs_all, prefilter=None, symmetrize=True)
 
+        print(f"Starting inference for {current_basename}...")
+        start_time = time.time()
         output = inference(pairs, model, args.device, batch_size=1, verbose=True)
+        end_time = time.time()
+        inference_duration = end_time - start_time
+        all_inference_times.append(inference_duration)
+        print(f"Inference for {current_basename} took {inference_duration:.2f} seconds.")
 
         print("Performing global alignment...")
         # For a single pair, PairViewer mode is appropriate.
@@ -81,6 +91,32 @@ def main(model, args, basenames_list):
                 print(f"Error saving camera parameters for {current_basename} to {json_output_path}: {e}")
         else:
             print(f"Warning: Could not retrieve intrinsics or poses for {current_basename}. Skipping camera parameter saving.")
+
+        # Save 3D model
+        print(f"Saving 3D model for {current_basename}...")
+        try:
+            # Parameters for get_3D_model_from_scene:
+            # outdir, silent, scene, min_conf_thr=3, as_pointcloud=False, mask_sky=False,
+            # clean_depth=False, transparent_cams=False, cam_size=0.05, glb_name='scene.glb'
+            # We can make some of these configurable via args if needed later.
+            # For now, use sensible defaults.
+            # The demo.py uses silent=False by default.
+            # min_conf_thr is not in parsed_args, using default 3.
+            # as_pointcloud is not in parsed_args, using default False.
+            model_filename = f"{current_basename}_pct.ply"
+            model_output_path = get_3D_model_from_scene(
+                outdir=args.output_dir,
+                silent=False, # Or True if less verbose output is desired
+                scene=scene,
+                glb_name=model_filename
+                # min_conf_thr, as_pointcloud, etc., will use their defaults
+            )
+            if model_output_path:
+                print(f"Saved 3D model to {model_output_path}")
+            else:
+                print(f"Warning: Could not generate or save 3D model for {current_basename}.")
+        except Exception as e:
+            print(f"Error saving 3D model for {current_basename}: {e}")
 
         print("Saving RGB and Depth images...")
         rgb_images = scene.imgs
@@ -123,6 +159,15 @@ def main(model, args, basenames_list):
             # print("Depth maps content:", depth_maps) # Potentially large output
         
         print(f"--- Finished processing basename: {current_basename} ---")
+
+        
+
+    # Report average inference time
+    if all_inference_times:
+        avg_inference_time = sum(all_inference_times) / len(all_inference_times)
+        print(f"\nAverage inference time over {len(all_inference_times)} pairs: {avg_inference_time:.2f} seconds.")
+    else:
+        print("\nNo inference was performed to calculate an average time.")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

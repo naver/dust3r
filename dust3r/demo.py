@@ -65,7 +65,7 @@ def set_print_with_timestamp(time_format="%Y-%m-%d %H:%M:%S"):
 
 def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, cam_size=0.05,
                                  cam_color=None, as_pointcloud=False,
-                                 transparent_cams=False, silent=False):
+                                 transparent_cams=False, silent=False, glb_name='scene.glb'):
     assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world) == len(focals)
     pts3d = to_numpy(pts3d)
     imgs = to_numpy(imgs)
@@ -79,7 +79,9 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
         pts = np.concatenate([p[m] for p, m in zip(pts3d, mask)])
         col = np.concatenate([p[m] for p, m in zip(imgs, mask)])
         pct = trimesh.PointCloud(pts.reshape(-1, 3), colors=col.reshape(-1, 3))
+        
         scene.add_geometry(pct)
+        print(f"Added point cloud to scene. Number of points: {len(pts)}")
     else:
         meshes = []
         for i in range(len(imgs)):
@@ -100,15 +102,18 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
     rot = np.eye(4)
     rot[:3, :3] = Rotation.from_euler('y', np.deg2rad(180)).as_matrix()
     scene.apply_transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
-    outfile = os.path.join(outdir, 'scene.glb')
+    pct.apply_transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
+    combined_mesh = trimesh.util.concatenate([mesh for mesh in scene.geometry.values()])
+    outfile = os.path.join(outdir, glb_name)
     if not silent:
         print('(exporting 3D scene to', outfile, ')')
-    scene.export(file_obj=outfile)
+    # combined_mesh.export(file_obj=outfile)
+    pct.export(file_obj=outfile)
     return outfile
 
 
-def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud=False, mask_sky=False,
-                            clean_depth=False, transparent_cams=False, cam_size=0.05):
+def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud=True, mask_sky=False,
+                            clean_depth=False, transparent_cams=False, cam_size=0.05, glb_name='scene.glb'):
     """
     extract 3D_model (glb file) from a reconstructed scene
     """
@@ -129,7 +134,7 @@ def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud
     scene.min_conf_thr = float(scene.conf_trf(torch.tensor(min_conf_thr)))
     msk = to_numpy(scene.get_masks())
     return _convert_scene_output_to_glb(outdir, rgbimg, pts3d, msk, focals, cams2world, as_pointcloud=as_pointcloud,
-                                        transparent_cams=transparent_cams, cam_size=cam_size, silent=silent)
+                                        transparent_cams=transparent_cams, cam_size=cam_size, silent=silent, glb_name=glb_name)
 
 
 def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist, schedule, niter, min_conf_thr,
