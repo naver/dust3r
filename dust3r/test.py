@@ -47,9 +47,9 @@ def main(model, args, basenames_list):
         # os.makedirs(args.output_dir, exist_ok=True) # Output dir created once in __main__
 
         loaded_imgs_all = load_images([left_path, right_path], size=args.image_size, verbose=True)
-        
+        print(f"loaded_imgs_all: {loaded_imgs_all[0]['img'].shape} {loaded_imgs_all[0]['img'].dtype}")
         pairs = make_pairs(loaded_imgs_all, prefilter=None, symmetrize=True)
-
+        
         print(f"Starting inference for {current_basename}...")
         start_time = time.time()
         output = inference(pairs, model, args.device, batch_size=1, verbose=True)

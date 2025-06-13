@@ -10,45 +10,31 @@ import argparse
 import torch
 import logging
 import time
-from omegaconf import OmegaConf
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 import imageio
+from PIL import Image
 
-from core.foundation_stereo import FoundationStereo
-from core.utils.utils import InputPadder
-from scripts.deserialize_depth_dataset import Boto3ResourceManager, deserialize_and_download_image, deserialize_and_download_tensor
-from Utils import set_logging_format, set_seed, vis_disparity
+# dust3r imports
+from dust3r.model import AsymmetricCroCo3DStereo, load_model as load_dust3r_model
+from dust3r.inference import inference
+from dust3r.image_pairs import make_pairs
+from dust3r.utils.device import to_numpy
+from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
+from dust3r.utils.image import load_images, ImgNorm
+from dust3r.deserialize_depth_dataset import Boto3ResourceManager, deserialize_and_download_image, deserialize_and_download_tensor
 
 
 def load_model(args):
-    """Loads the stereo model and checkpoint.
-
-    Args:
-        args: Command-line arguments.
-
-    Returns:
-        model: The loaded stereo model.
-    """
-    ckpt_dir = args.ckpt_dir
-    cfg = OmegaConf.load(f'{os.path.dirname(ckpt_dir)}/cfg.yaml')
-    if 'vit_size' not in cfg:
-        cfg['vit_size'] = 'vitl'
-    for k in args.__dict__:
-        if k not in ['left_file', 'right_file']: # Avoid overwriting constructed paths
-             cfg[k] = args.__dict__[k]
-    current_args = OmegaConf.create(cfg) # Use a different name to avoid confusion
-    logging.info(f"args for model loading:\n{current_args}")
-    logging.info(f"Using pretrained model from {ckpt_dir}")
-
-    model = FoundationStereo(current_args)
-
-    ckpt = torch.load(ckpt_dir)
-    logging.info(f"ckpt global_step:{ckpt['global_step']}, epoch:{ckpt['epoch']}")
-    model.load_state_dict(ckpt['model'])
-
-    model.cuda()
+    """Loads the DUSt3R model."""
+    if args.weights:
+        model = load_dust3r_model(args.weights, args.device)
+    elif args.model_name:
+        model = AsymmetricCroCo3DStereo.from_pretrained(args.model_name, device=args.device)
+    else:
+        raise ValueError("Either --model_name or --weights must be provided.")
+    logging.info(f"Loaded DUSt3R model on {args.device}")
     model.eval()
     return model
 
@@ -145,23 +131,24 @@ def deserialize_data(data: DepthData, resource_manager: Boto3ResourceManager, ar
     refactored_intrinsics = intrinsics.clone()
 
     C, H, W = img1.shape[-3:]
-    target_h, target_w = 1200, 1600
+    # dust3r works well with smaller images, let's not crop to a large size
+    # target_h, target_w = 1200, 1600
 
-    if H > target_h:
-        y_offset = (H - target_h) // 2
-        img1 = img1[..., y_offset:y_offset + target_h, :]
-        img2 = img2[..., y_offset:y_offset + target_h, :]
-        depth_gt = depth_gt[..., y_offset:y_offset + target_h, :]
-        # adjust intrinsics. cy is usually intrinsics[..., 1, 2]
-        refactored_intrinsics[..., 1, 2] -= y_offset
+    # if H > target_h:
+    #     y_offset = (H - target_h) // 2
+    #     img1 = img1[..., y_offset:y_offset + target_h, :]
+    #     img2 = img2[..., y_offset:y_offset + target_h, :]
+    #     depth_gt = depth_gt[..., y_offset:y_offset + target_h, :]
+    #     # adjust intrinsics. cy is usually intrinsics[..., 1, 2]
+    #     refactored_intrinsics[..., 1, 2] -= y_offset
 
-    if W > target_w:
-        x_offset = (W - target_w) // 2
-        img1 = img1[..., :, x_offset:x_offset + target_w]
-        img2 = img2[..., :, x_offset:x_offset + target_w]
-        depth_gt = depth_gt[..., :, x_offset:x_offset + target_w]
-        # adjust intrinsics. cx is usually intrinsics[..., 0, 2]
-        refactored_intrinsics[..., 0, 2] -= x_offset
+    # if W > target_w:
+    #     x_offset = (W - target_w) // 2
+    #     img1 = img1[..., :, x_offset:x_offset + target_w]
+    #     img2 = img2[..., :, x_offset:x_offset + target_w]
+    #     depth_gt = depth_gt[..., :, x_offset:x_offset + target_w]
+    #     # adjust intrinsics. cx is usually intrinsics[..., 0, 2]
+    #     refactored_intrinsics[..., 0, 2] -= x_offset
     
     print(f"Refactored intrinsics: \n{refactored_intrinsics}")
     print(f"img1.shape after crop: {img1.shape}")
@@ -171,38 +158,161 @@ def deserialize_data(data: DepthData, resource_manager: Boto3ResourceManager, ar
     return img1[None], img2[None], refactored_intrinsics, depth_gt, baseline
 
 
-def run_inference(model, img0, img1, args):
-    """Runs inference on a pair of image tensors.
+def _resize_image(image_data, size):
+    """Helper to resize image and adjust focals, inspired by dust3r.utils.image"""
+    rgb = image_data['rgb']
+    old_h, old_w = rgb.shape[:2]
+    
+    if isinstance(size, int):
+        new_w, new_h = size, size
+    else:
+        new_w, new_h = size
+
+    pil_img = Image.fromarray(rgb)
+    pil_img_resized = pil_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    
+    resized_rgb = np.array(pil_img_resized)
+    
+    fx, fy = image_data['focals']
+    new_fx = fx * new_w / old_w
+    new_fy = fy * new_h / old_h
+    
+    return {'rgb': resized_rgb, 'focals': (new_fx, new_fy), 'path': image_data['path']}
+
+
+def prepare_image_for_dust3r(img_tensor, size, idx=0):
+    """Prepare image tensor for dust3r input format.
+    
+    Args:
+        img_tensor: Input tensor (1, C, H, W)
+        size: Target size for resizing
+        idx: Index of the image in the sequence
+        
+    Returns:
+        dict: Image data in dust3r format with img, true_shape, idx, and instance
+    """
+    # Convert to numpy and permute to HWC
+    img_np = img_tensor.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+    
+    # Convert to PIL Image for resizing
+    pil_img = Image.fromarray(img_np)
+    W1, H1 = pil_img.size
+    
+    # Resize according to dust3r's logic
+    if size == 224:
+        # resize short side to 224 (then crop)
+        pil_img = _resize_pil_image(pil_img, round(size * max(W1/H1, H1/W1)))
+    else:
+        # resize long side to 512
+        pil_img = _resize_pil_image(pil_img, size)
+    
+    # Center crop
+    W, H = pil_img.size
+    cx, cy = W//2, H//2
+    if size == 224:
+        half = min(cx, cy)
+        pil_img = pil_img.crop((cx-half, cy-half, cx+half, cy+half))
+    else:
+        halfw, halfh = ((2*cx)//16)*8, ((2*cy)//16)*8
+        if W == H:  # if square
+            halfh = 3*halfw/4
+        pil_img = pil_img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
+    
+    # Convert to dust3r format
+    img_norm = ImgNorm(pil_img)
+    return {
+        'img': img_norm[None],  # Remove [None] as it's handled by collate_with_cat
+        'true_shape': np.int32([pil_img.size[::-1]]),
+        'idx': idx,
+        'instance': str(idx)
+    }
+
+
+def _resize_pil_image(img, size):
+    """Resize PIL image maintaining aspect ratio."""
+    W, H = img.size
+    if W > H:
+        new_W = size
+        new_H = int(H * size / W)
+    else:
+        new_H = size
+        new_W = int(W * size / H)
+    return img.resize((new_W, new_H), Image.Resampling.LANCZOS)
+
+
+def find_optimal_scale(pred_depth, gt_depth):
+    """Find the optimal scale factor between predicted and ground truth depth.
+    
+    Args:
+        pred_depth: Predicted depth map (numpy array or torch tensor)
+        gt_depth: Ground truth depth map (numpy array or torch tensor)
+        
+    Returns:
+        scale: Optimal scale factor
+        error: Mean absolute error after scaling
+    """
+    # Convert to numpy if needed
+    if torch.is_tensor(pred_depth):
+        pred_depth = pred_depth.cpu().numpy()
+    if torch.is_tensor(gt_depth):
+        gt_depth = gt_depth.cpu().numpy()
+    
+    # Remove invalid values
+    valid_mask = (gt_depth > 0) & np.isfinite(gt_depth) & np.isfinite(pred_depth)
+    if not np.any(valid_mask):
+        return 1.0, float('inf')
+    
+    # Compute scale using median ratio
+    ratios = gt_depth[valid_mask] / (pred_depth[valid_mask] + 1e-6)
+    scale = np.median(ratios)
+    
+    # Compute error after scaling
+    scaled_pred = pred_depth * scale
+    error = np.mean(np.abs(scaled_pred[valid_mask] - gt_depth[valid_mask]))
+    
+    return scale, error
+
+
+def run_dust3r_inference(model, img1, img2, intrinsics, args):
+    """Runs inference on a pair of image tensors using DUSt3R.
 
     Args:
-        model: The stereo model.
-        img0_torch: Left image tensor.
-        img1_torch: Right image tensor.
+        model: The DUSt3R model.
+        img1: Left image tensor (1, C, H, W).
+        img2: Right image tensor (1, C, H, W).
+        intrinsics: Camera intrinsics tensor.
         args: Command-line arguments.
 
     Returns:
-        disp: The disparity map.
+        pred_depth: The predicted depth map (H, W).
         inference_time: The time taken for inference.
     """
-    img0_torch = img0.clone()
-    img1_torch = img1.clone()
-    H, W = img0_torch.shape[2:]
-    padder = InputPadder(img0_torch.shape, divis_by=32, force_square=False)
-    img0_padded, img1_padded = padder.pad(img0_torch, img1_torch)
+    # Prepare images for dust3r
+    img1_data = prepare_image_for_dust3r(img1, args.image_size, idx=0)
+    img2_data = prepare_image_for_dust3r(img2, args.image_size, idx=1)
+    
+    # Get focal lengths from intrinsics
+    focals = (intrinsics[0, 0].item(), intrinsics[1, 1].item())
+    
+    # Add focal lengths to the image data
+    # img1_data['focals'] = focals
+    # img2_data['focals'] = focals
+    
+    # Create list of images in dust3r format
+    loaded_imgs = [img1_data, img2_data]
+    pairs = make_pairs(loaded_imgs, prefilter=None, symmetrize=True)
 
     start_time = time.time()
     with torch.cuda.amp.autocast(True):
-        if not args.hiera:
-            disp = model.forward(img0_padded, img1_padded,
-                                 iters=args.valid_iters, test_mode=True, low_memory=False)
-        else:
-            disp = model.run_hierachical(
-                img0_padded, img1_padded, iters=args.valid_iters, test_mode=True, small_ratio=0.5, low_memory=True)
+        output = inference(pairs, model, args.device, batch_size=1)
     inference_time = time.time() - start_time
-
-    disp = padder.unpad(disp.float())
-    disp = disp.data.cpu().numpy().reshape(H, W)
-    return disp, inference_time
+    
+    scene = global_aligner(output, device=args.device, mode=GlobalAlignerMode.PairViewer)
+    
+    depth_maps = to_numpy(scene.get_depthmaps())
+    pred_depth = depth_maps[0]  # Depth for the first image
+    
+    return pred_depth, inference_time
 
 
 def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
@@ -278,7 +388,7 @@ def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
         axes[2, 1].axis('off')
 
     plt.tight_layout()
-    output_path = os.path.join(out_dir, f"1_depth_comparison.png")
+    output_path = os.path.join(out_dir, f"{item_id}_depth_comparison.png")
     plt.savefig(output_path)
     logging.info(f"Saved comparison plot to {output_path}")
     plt.close(fig)
@@ -288,60 +398,126 @@ def main(args):
     model = load_model(args)
     resource_manager = Boto3ResourceManager()
 
+    # Initialize DataFrame to store results
+    results_df = pd.DataFrame(columns=[
+        'item_id', 'mean_error', 'optimal_scale', 
+        'gt_min', 'gt_max', 'gt_mean',
+        'pred_min', 'pred_max', 'pred_mean',
+        'scaled_pred_min', 'scaled_pred_max', 'scaled_pred_mean',
+        'inference_time'
+    ])
+
     def data_fn():
         df = pd.read_parquet(args.meta_data_path)
         for i in range(len(df)):
-            yield DepthData.from_row(df.iloc[2])
+            yield DepthData.from_row(df.iloc[i])
 
+    processed_count = 0
     for data in data_fn():
+        if args.limit_num is not None and processed_count >= args.limit_num:
+            break
+            
         logging.info(f"Processing item {data.item_id}")
-        img1, img2, intrinsics, depth_gt, baseline = deserialize_data(
-            data, resource_manager, args)
-        disp, inference_time = run_inference(model, img1, img2, args)
+        try:
+            img1, img2, intrinsics, depth_gt, baseline = deserialize_data(
+                data, resource_manager, args)
+        except ValueError as e:
+            logging.warning(f"Skipping item {data.item_id} due to: {e}")
+            continue
 
-        vis = vis_disparity(disp)
-        imageio.imwrite(os.path.join(args.out_dir, f"{data.item_id}_disparity_vis.png"), vis)
-        print(f"baseline: {baseline} {intrinsics=} {disp.max()=} {disp.min()=}")
-        focal_length = intrinsics[0, 0]
-        pred_depth = (baseline * focal_length.item()) / (disp + 1e-6)
-        print(f"Predicted depth image max: {pred_depth.max()}, min: {pred_depth.min()}")
+        pred_depth_low_res, inference_time = run_dust3r_inference(model, img1, img2, intrinsics, args)
+        
+        # Resize predicted depth to match ground truth depth resolution
+        H, W = img1.shape[2:]
+        pred_depth_tensor = torch.from_numpy(pred_depth_low_res).unsqueeze(0).unsqueeze(0)
+        pred_depth_resized = torch.nn.functional.interpolate(pred_depth_tensor, size=(H, W), mode='bilinear', align_corners=False)
+        pred_depth = pred_depth_resized.squeeze().cpu().numpy()
+
+        # Find optimal scale
+        scale, error = find_optimal_scale(pred_depth, depth_gt)
+        scaled_pred_depth = pred_depth * scale
+        
+        # Record statistics
+        stats = {
+            'item_id': data.item_id,
+            'mean_error': error,
+            'optimal_scale': scale,
+            'gt_min': depth_gt.min(),
+            'gt_max': depth_gt.max(),
+            'gt_mean': depth_gt.mean(),
+            'pred_min': pred_depth.min(),
+            'pred_max': pred_depth.max(),
+            'pred_mean': pred_depth.mean(),
+            'scaled_pred_min': scaled_pred_depth.min(),
+            'scaled_pred_max': scaled_pred_depth.max(),
+            'scaled_pred_mean': scaled_pred_depth.mean(),
+            'inference_time': inference_time
+        }
+        results_df = pd.concat([results_df, pd.DataFrame([stats])], ignore_index=True)
+        
+        print(f"\nDepth Statistics for item {data.item_id}:")
+        print(f"Ground Truth - min: {depth_gt.min():.3f}, max: {depth_gt.max():.3f}, mean: {depth_gt.mean():.3f}")
+        print(f"Predicted (raw) - min: {pred_depth.min():.3f}, max: {pred_depth.max():.3f}, mean: {pred_depth.mean():.3f}")
+        print(f"Predicted (scaled) - min: {scaled_pred_depth.min():.3f}, max: {scaled_pred_depth.max():.3f}, mean: {scaled_pred_depth.mean():.3f}")
+        print(f"Optimal scale factor: {scale:.3f}")
+        print(f"Mean absolute error after scaling: {error:.3f}")
         
         if isinstance(pred_depth, torch.Tensor):
             pred_depth = pred_depth.cpu().numpy()
 
-        compare_and_visualize(img1, pred_depth, depth_gt, data.item_id, args.out_dir)
+        compare_and_visualize(img1, scaled_pred_depth, depth_gt, data.item_id, args.out_dir)
 
         logging.info(
-            f"Inference time: {inference_time:.4f}s, Disparity map shape: {disp.shape}")
-
-        # We break here for now to only test one item.
-        break
+            f"Inference time: {inference_time:.4f}s, Predicted depth map shape: {pred_depth.shape}")
+        
+        processed_count += 1
+        
+        # Save results every 10 scenes
+        if processed_count % 10 == 0:
+            results_path = os.path.join(args.out_dir, 'depth_benchmark_results.csv')
+            results_df.to_csv(results_path, index=False)
+            logging.info(f"Saved results to {results_path}")
+    
+    # Save final results
+    results_path = os.path.join(args.out_dir, 'depth_benchmark_results.csv')
+    results_df.to_csv(results_path, index=False)
+    logging.info(f"Saved final results to {results_path}")
+    
+    # Print summary statistics
+    print("\nSummary Statistics:")
+    print(f"Total scenes processed: {processed_count}")
+    print(f"Mean error: {results_df['mean_error'].mean():.3f} ± {results_df['mean_error'].std():.3f}")
+    print(f"Mean optimal scale: {results_df['optimal_scale'].mean():.3f} ± {results_df['optimal_scale'].std():.3f}")
+    print(f"Mean inference time: {results_df['inference_time'].mean():.3f}s ± {results_df['inference_time'].std():.3f}s")
 
 
 if __name__ == "__main__":
     code_dir = os.path.dirname(os.path.realpath(__file__))
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--meta_data_path', default="metadata/depth_live_1724981057", type=str, help='path to metadata parquet file')
-    parser.add_argument('--basename_dir', default=f'{code_dir}/../data/', type=str, help='directory of input images, e.g. xxx_left/right.png')
-    parser.add_argument('--ckpt_dir', default=f'{code_dir}/../pretrained_models/23-51-11/model_best_bp2.pth', type=str, help='pretrained model path')
-    parser.add_argument('--out_dir', default=f'{code_dir}/../output/', type=str, help='the directory to save results')
-    parser.add_argument('--scale', default=1, type=float,
-                        help='downsize the image by scale, must be <=1')
-    parser.add_argument('--hiera', default=0, type=int,
-                        help='hierarchical inference (only needed for high-resolution images (>1K))')
-    parser.add_argument('--z_far', default=10, type=float,
-                        help='max depth to clip in point cloud')
-    parser.add_argument('--valid_iters', type=int, default=32, help='number of flow-field updates during forward pass')
-    parser.add_argument('--get_pc', type=int, default=1, help='save point cloud output')
-    parser.add_argument('--remove_invisible', default=1, type=int, help='remove non-overlapping observations between left and right images from point cloud, so the remaining points are more reliable')
-    parser.add_argument('--denoise_cloud', type=int, default=0, help='whether to denoise the point cloud')
-    parser.add_argument('--denoise_nb_points', type=int, default=30, help='number of points to consider for radius outlier removal')
-    parser.add_argument('--denoise_radius', type=float, default=0.03, help='radius to use for outlier removal')
+    parser = argparse.ArgumentParser(description="Run DUSt3R depth estimation and compare with ground truth.")
+    
+    # Model arguments
+    model_group = parser.add_mutually_exclusive_group(required=True)
+    model_group.add_argument("--weights", type=str, help="Path to DUSt3R model weights (.pth file).")
+    model_group.add_argument("--model_name", type=str, default="DUSt3R_ViTLarge_BaseDecoder_512_dpt", help="Name of the model from HuggingFace Hub (e.g., 'DUSt3R_ViTLarge_BaseDecoder_512_dpt').")
+
+    # Data arguments
+    parser.add_argument('--meta_data_path', default="metadata/depth_live_1724981057", type=str, help='Path to metadata parquet file.')
+    
+    # Output arguments
+    parser.add_argument('--out_dir', default=f'{code_dir}/../output/dust3r_benchmark/', type=str, help='The directory to save results.')
+
+    # Inference arguments
+    parser.add_argument("--device", type=str, default='cuda', help="PyTorch device to use ('cuda' or 'cpu').")
+    parser.add_argument("--image_size", type=int, default=512, choices=[224, 512], help="Image size for DUSt3R processing. Default: 512.")
+    parser.add_argument("--limit-num", type=int, help="Limit the number of items to process. If not set, process all items.")
+
     args = parser.parse_args()
 
-    print("Starting test...")
-    set_logging_format()
-    set_seed(0)
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        print("CUDA is not available. Switching to CPU.")
+        args.device = 'cpu'
+
+    print("Starting DUSt3R depth benchmark...")
     torch.autograd.set_grad_enabled(False)
     os.makedirs(args.out_dir, exist_ok=True)
 
