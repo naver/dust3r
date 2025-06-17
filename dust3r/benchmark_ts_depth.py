@@ -24,6 +24,7 @@ from dust3r.utils.device import to_numpy
 from dust3r.cloud_opt import global_aligner, GlobalAlignerMode
 from dust3r.utils.image import load_images, ImgNorm
 from dust3r.deserialize_depth_dataset import Boto3ResourceManager, deserialize_and_download_image, deserialize_and_download_tensor
+from dust3r.demo import get_3D_model_from_scene
 
 
 def load_model(args):
@@ -31,7 +32,7 @@ def load_model(args):
     if args.weights:
         model = load_dust3r_model(args.weights, args.device)
     elif args.model_name:
-        model = AsymmetricCroCo3DStereo.from_pretrained(args.model_name, device=args.device)
+        model = AsymmetricCroCo3DStereo.from_pretrained(args.model_name).to(args.device)
     else:
         raise ValueError("Either --model_name or --weights must be provided.")
     logging.info(f"Loaded DUSt3R model on {args.device}")
@@ -105,6 +106,7 @@ def deserialize_data(data: DepthData, resource_manager: Boto3ResourceManager, ar
     
     depth_gt = deserialize_and_download_tensor(
         data.depth_map_paths[cam1_id], resource_manager=resource_manager)
+    depth_gt = depth_gt
     print(f"GT depth image max : {depth_gt.max()}, min: {depth_gt.min()}")
     print(f"img1.shape before crop: {img1.shape}")
 
@@ -121,15 +123,22 @@ def deserialize_data(data: DepthData, resource_manager: Boto3ResourceManager, ar
     transform1 = all_world_from_camera_transforms[cam1_idx]
     transform2 = all_world_from_camera_transforms[cam2_idx]
     
+    # Print ground truth camera poses
+    print("\nGround Truth Camera Poses:")
+    print("Camera 1 (Reference):")
+    print(transform1)
+    print("\nCamera 2:")
+    print(transform2)
+    
+    
     # The translation vector is the last column of the 4x4 matrix
     t1 = transform1[:3, 3]
     t2 = transform2[:3, 3]
     
-    baseline = torch.linalg.norm(t1 - t2).item()
-
-    print(f"Original intrinsics: \n{intrinsics}")
+    gt_baseline = torch.linalg.norm(t1 - t2).item()
     refactored_intrinsics = intrinsics.clone()
-
+    print(f"Original intrinsics: \n{intrinsics}")
+    print(f"GT Baseline: {gt_baseline}")
     C, H, W = img1.shape[-3:]
     # dust3r works well with smaller images, let's not crop to a large size
     # target_h, target_w = 1200, 1600
@@ -149,13 +158,10 @@ def deserialize_data(data: DepthData, resource_manager: Boto3ResourceManager, ar
     #     depth_gt = depth_gt[..., :, x_offset:x_offset + target_w]
     #     # adjust intrinsics. cx is usually intrinsics[..., 0, 2]
     #     refactored_intrinsics[..., 0, 2] -= x_offset
-    
-    print(f"Refactored intrinsics: \n{refactored_intrinsics}")
-    print(f"img1.shape after crop: {img1.shape}")
 
 
     # The model expects a batch dimension
-    return img1[None], img2[None], refactored_intrinsics, depth_gt, baseline
+    return img1[None], img2[None], refactored_intrinsics, depth_gt, gt_baseline, transform1, transform2
 
 
 def _resize_image(image_data, size):
@@ -273,7 +279,7 @@ def find_optimal_scale(pred_depth, gt_depth):
     return scale, error
 
 
-def run_dust3r_inference(model, img1, img2, intrinsics, args):
+def run_dust3r_inference(model, img1, img2, intrinsics, args, gt_pose1=None, gt_pose2=None, niter=300, schedule='cosine', lr=0.01):
     """Runs inference on a pair of image tensors using DUSt3R.
 
     Args:
@@ -282,22 +288,26 @@ def run_dust3r_inference(model, img1, img2, intrinsics, args):
         img2: Right image tensor (1, C, H, W).
         intrinsics: Camera intrinsics tensor.
         args: Command-line arguments.
+        gt_pose1: Ground truth pose for first camera (4x4 matrix)
+        gt_pose2: Ground truth pose for second camera (4x4 matrix)
 
     Returns:
         pred_depth: The predicted depth map (H, W).
         inference_time: The time taken for inference.
+        pred_baseline: The predicted baseline between cameras
     """
     # Prepare images for dust3r
+    print(f"img1.shape: {img1.shape}")
     img1_data = prepare_image_for_dust3r(img1, args.image_size, idx=0)
     img2_data = prepare_image_for_dust3r(img2, args.image_size, idx=1)
+    # print(f"img1_data: {img1_data}")
+    
     
     # Get focal lengths from intrinsics
     focals = (intrinsics[0, 0].item(), intrinsics[1, 1].item())
     
-    # Add focal lengths to the image data
-    # img1_data['focals'] = focals
-    # img2_data['focals'] = focals
-    
+    gt_poses = [gt_pose1, gt_pose2]
+
     # Create list of images in dust3r format
     loaded_imgs = [img1_data, img2_data]
     pairs = make_pairs(loaded_imgs, prefilter=None, symmetrize=True)
@@ -307,12 +317,40 @@ def run_dust3r_inference(model, img1, img2, intrinsics, args):
         output = inference(pairs, model, args.device, batch_size=1)
     inference_time = time.time() - start_time
     
-    scene = global_aligner(output, device=args.device, mode=GlobalAlignerMode.PairViewer)
+    # Enable gradients for optimization
+    torch.autograd.set_grad_enabled(True)
+    
+    scene = global_aligner(output, device=args.device, mode=GlobalAlignerMode.ModularPointCloudOptimizer, optimize_pp=True)
+    
+    scene.preset_pose([pose for pose in gt_poses], [True, True])
+    scene.preset_focal([focals[0], focals[1]], [True, True])
+    loss = scene.compute_global_alignment(init="mst", niter=niter, schedule=schedule, lr=lr)
+    
+    # Disable gradients after optimization
+    torch.autograd.set_grad_enabled(False)
     
     depth_maps = to_numpy(scene.get_depthmaps())
     pred_depth = depth_maps[0]  # Depth for the first image
     
-    return pred_depth, inference_time
+    # Get predicted camera poses
+    pred_poses = scene.get_im_poses()
+    pred_pose1 = pred_poses[0]  # First camera pose
+    pred_pose2 = pred_poses[1]  # Second camera pose
+    
+    # Print predicted camera poses
+    print("\nPredicted Camera Poses:")
+    print("Camera 1 (Reference):")
+    print(pred_pose1)
+    print("\nCamera 2:")
+    print(pred_pose2)
+    
+    # Calculate predicted baseline from camera poses
+    pred_t1 = pred_pose1[:3, 3]  # Translation vector of first camera
+    pred_t2 = pred_pose2[:3, 3]  # Translation vector of second camera
+    pred_baseline = np.linalg.norm(pred_t2.cpu().numpy() - pred_t1.cpu().numpy())
+    print(f"Predicted Baseline: {pred_baseline}")
+    
+    return pred_depth, inference_time, pred_baseline, scene
 
 
 def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
@@ -325,9 +363,23 @@ def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
     if isinstance(depth_gt, torch.Tensor):
         depth_gt = depth_gt.cpu().numpy()
 
+    # Debug prints for depth values
+    print("\nDebug depth values:")
+    print(f"Pred depth shape: {pred_depth.shape}, dtype: {pred_depth.dtype}")
+    print(f"Pred depth min: {np.min(pred_depth)}, max: {np.max(pred_depth)}")
+    print(f"Pred depth has NaN: {np.isnan(pred_depth).any()}")
+    print(f"Pred depth has inf: {np.isinf(pred_depth).any()}")
+    print(f"GT depth shape: {depth_gt.shape}, dtype: {depth_gt.dtype}")
+    print(f"GT depth min: {np.min(depth_gt)}, max: {np.max(depth_gt)}")
+    print(f"GT depth has NaN: {np.isnan(depth_gt).any()}")
+    print(f"GT depth has inf: {np.isinf(depth_gt).any()}")
+
     # Squeeze out channel dimension if it exists
     if depth_gt.ndim == 3 and depth_gt.shape[0] == 1:
         depth_gt = np.squeeze(depth_gt, axis=0)
+    
+    # Handle invalid values in predicted depth
+    pred_depth = np.nan_to_num(pred_depth, nan=0.0, posinf=0.0, neginf=0.0)
     
     depth_diff = np.abs(pred_depth - depth_gt)
 
@@ -346,19 +398,26 @@ def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
     # Determine shared color range for depth plots
     valid_pred_depth = pred_depth[np.isfinite(pred_depth)]
     valid_depth_gt = depth_gt[np.isfinite(depth_gt)]
+    
+    print(f"\nValid depth ranges:")
+    print(f"Valid pred depth min: {np.min(valid_pred_depth)}, max: {np.max(valid_pred_depth)}")
+    print(f"Valid GT depth min: {np.min(valid_depth_gt)}, max: {np.max(valid_depth_gt)}")
+    
     vmin, vmax = None, None
     if valid_pred_depth.size > 0 and valid_depth_gt.size > 0:
         vmin = min(np.min(valid_pred_depth), np.min(valid_depth_gt))
         vmax = max(np.max(valid_pred_depth), np.max(valid_depth_gt))
+        print(f"Using visualization range: vmin={vmin}, vmax={vmax}")
     else:
         logging.warning(f"Could not determine a valid color range for item {item_id}. Using separate color bars.")
+        print("Warning: Could not determine valid color range")
 
     im = axes[1, 0].imshow(depth_gt, cmap='viridis', vmin=vmin, vmax=vmax)
     axes[1, 0].set_title("Ground Truth Depth")
     axes[1, 0].axis('off')
     fig.colorbar(im, ax=axes[1, 0])
     
-    im = axes[1, 1].imshow(pred_depth, cmap='viridis', vmin=vmin, vmax=vmax)
+    im = axes[1, 1].imshow(pred_depth, cmap='viridis')#, vmin=vmin, vmax=vmax)
     axes[1, 1].set_title("Predicted Depth")
     axes[1, 1].axis('off')
     fig.colorbar(im, ax=axes[1, 1])
@@ -400,17 +459,17 @@ def main(args):
 
     # Initialize DataFrame to store results
     results_df = pd.DataFrame(columns=[
-        'item_id', 'mean_error', 'optimal_scale', 
+        'item_id', 'mean_error',
         'gt_min', 'gt_max', 'gt_mean',
         'pred_min', 'pred_max', 'pred_mean',
-        'scaled_pred_min', 'scaled_pred_max', 'scaled_pred_mean',
         'inference_time'
     ])
 
     def data_fn():
         df = pd.read_parquet(args.meta_data_path)
         for i in range(len(df)):
-            yield DepthData.from_row(df.iloc[i])
+            idx = np.random.randint(0, len(df))
+            yield DepthData.from_row(df.iloc[idx])
 
     processed_count = 0
     for data in data_fn():
@@ -419,13 +478,31 @@ def main(args):
             
         logging.info(f"Processing item {data.item_id}")
         try:
-            img1, img2, intrinsics, depth_gt, baseline = deserialize_data(
+            img1, img2, intrinsics, depth_gt, gt_baseline, gt_pose1, gt_pose2 = deserialize_data(
                 data, resource_manager, args)
         except ValueError as e:
             logging.warning(f"Skipping item {data.item_id} due to: {e}")
             continue
 
-        pred_depth_low_res, inference_time = run_dust3r_inference(model, img1, img2, intrinsics, args)
+        pred_depth_low_res, inference_time, _, scene = run_dust3r_inference(
+            model, img1, img2, intrinsics, args, gt_pose1, gt_pose2)
+        
+        # Save 3D model as PLY
+        print(f"Saving 3D model for item {data.item_id}...")
+        try:
+            model_filename = f"{data.item_id}_model.ply"
+            model_output_path = get_3D_model_from_scene(
+                outdir=args.out_dir,
+                silent=False,
+                scene=scene,
+                glb_name=model_filename
+            )
+            if model_output_path:
+                print(f"Saved 3D model to {model_output_path}")
+            else:
+                print(f"Warning: Could not generate or save 3D model for item {data.item_id}.")
+        except Exception as e:
+            print(f"Error saving 3D model for item {data.item_id}: {e}")
         
         # Resize predicted depth to match ground truth depth resolution
         H, W = img1.shape[2:]
@@ -433,39 +510,32 @@ def main(args):
         pred_depth_resized = torch.nn.functional.interpolate(pred_depth_tensor, size=(H, W), mode='bilinear', align_corners=False)
         pred_depth = pred_depth_resized.squeeze().cpu().numpy()
 
-        # Find optimal scale
-        scale, error = find_optimal_scale(pred_depth, depth_gt)
-        scaled_pred_depth = pred_depth * scale
+        print(f"Pred depth min: {pred_depth.min()}, max: {pred_depth.max()}, mean: {pred_depth.mean()}")
+        print(f"Pred depth shape: {pred_depth.shape}")
         
         # Record statistics
         stats = {
             'item_id': data.item_id,
-            'mean_error': error,
-            'optimal_scale': scale,
+            'mean_error': np.mean(np.abs(pred_depth - depth_gt.cpu().numpy())),
             'gt_min': depth_gt.min(),
             'gt_max': depth_gt.max(),
             'gt_mean': depth_gt.mean(),
             'pred_min': pred_depth.min(),
             'pred_max': pred_depth.max(),
             'pred_mean': pred_depth.mean(),
-            'scaled_pred_min': scaled_pred_depth.min(),
-            'scaled_pred_max': scaled_pred_depth.max(),
-            'scaled_pred_mean': scaled_pred_depth.mean(),
             'inference_time': inference_time
         }
         results_df = pd.concat([results_df, pd.DataFrame([stats])], ignore_index=True)
         
         print(f"\nDepth Statistics for item {data.item_id}:")
         print(f"Ground Truth - min: {depth_gt.min():.3f}, max: {depth_gt.max():.3f}, mean: {depth_gt.mean():.3f}")
-        print(f"Predicted (raw) - min: {pred_depth.min():.3f}, max: {pred_depth.max():.3f}, mean: {pred_depth.mean():.3f}")
-        print(f"Predicted (scaled) - min: {scaled_pred_depth.min():.3f}, max: {scaled_pred_depth.max():.3f}, mean: {scaled_pred_depth.mean():.3f}")
-        print(f"Optimal scale factor: {scale:.3f}")
-        print(f"Mean absolute error after scaling: {error:.3f}")
+        print(f"Predicted - min: {pred_depth.min():.3f}, max: {pred_depth.max():.3f}, mean: {pred_depth.mean():.3f}")
+        print(f"Mean absolute error: {stats['mean_error']:.3f}")
         
         if isinstance(pred_depth, torch.Tensor):
             pred_depth = pred_depth.cpu().numpy()
 
-        compare_and_visualize(img1, scaled_pred_depth, depth_gt, data.item_id, args.out_dir)
+        compare_and_visualize(img1, pred_depth, depth_gt, data.item_id, args.out_dir)
 
         logging.info(
             f"Inference time: {inference_time:.4f}s, Predicted depth map shape: {pred_depth.shape}")
@@ -487,7 +557,6 @@ def main(args):
     print("\nSummary Statistics:")
     print(f"Total scenes processed: {processed_count}")
     print(f"Mean error: {results_df['mean_error'].mean():.3f} ± {results_df['mean_error'].std():.3f}")
-    print(f"Mean optimal scale: {results_df['optimal_scale'].mean():.3f} ± {results_df['optimal_scale'].std():.3f}")
     print(f"Mean inference time: {results_df['inference_time'].mean():.3f}s ± {results_df['inference_time'].std():.3f}s")
 
 
