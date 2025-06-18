@@ -20,6 +20,8 @@ RUN pip install opencv-python==4.8.0.74
 WORKDIR /dust3r/croco/models/curope/
 RUN python setup.py build_ext --inplace
 
+RUN pip install boto3 zstandard
+
 WORKDIR /dust3r
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
