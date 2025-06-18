@@ -123,13 +123,6 @@ def deserialize_data(data: DepthData, resource_manager: Boto3ResourceManager, ar
     transform1 = all_world_from_camera_transforms[cam1_idx]
     transform2 = all_world_from_camera_transforms[cam2_idx]
     
-    # Print ground truth camera poses
-    print("\nGround Truth Camera Poses:")
-    print("Camera 1 (Reference):")
-    print(transform1)
-    print("\nCamera 2:")
-    print(transform2)
-    
     
     # The translation vector is the last column of the 4x4 matrix
     t1 = transform1[:3, 3]
@@ -302,9 +295,15 @@ def run_dust3r_inference(model, img1, img2, intrinsics, args, gt_pose1=None, gt_
     img2_data = prepare_image_for_dust3r(img2, args.image_size, idx=1)
     # print(f"img1_data: {img1_data}")
     
+    print(f"img1_data: {img1_data['img'].shape}")
     
+    # Calculate scale factor from image shapes
+    original_h, original_w = img1.shape[2:]  # Get H, W from (1, C, H, W)
+    resized_h, resized_w = img1_data['img'].shape[2:]  # Get H, W from resized image
+    scale = min(original_h/resized_h, original_w/resized_w)
+    print(f"Scale factor: {scale}")
     # Get focal lengths from intrinsics
-    focals = (intrinsics[0, 0].item(), intrinsics[1, 1].item())
+    focals = (intrinsics[0, 0].item()/scale, intrinsics[1, 1].item()/scale)
     
     gt_poses = [gt_pose1, gt_pose2]
 
@@ -325,7 +324,7 @@ def run_dust3r_inference(model, img1, img2, intrinsics, args, gt_pose1=None, gt_
     scene.preset_pose([pose for pose in gt_poses], [True, True])
     scene.preset_focal([focals[0], focals[1]], [True, True])
     loss = scene.compute_global_alignment(init="mst", niter=niter, schedule=schedule, lr=lr)
-    
+    print(f"Focals: {scene.get_focals()}")
     # Disable gradients after optimization
     torch.autograd.set_grad_enabled(False)
     
@@ -338,11 +337,11 @@ def run_dust3r_inference(model, img1, img2, intrinsics, args, gt_pose1=None, gt_
     pred_pose2 = pred_poses[1]  # Second camera pose
     
     # Print predicted camera poses
-    print("\nPredicted Camera Poses:")
-    print("Camera 1 (Reference):")
-    print(pred_pose1)
-    print("\nCamera 2:")
-    print(pred_pose2)
+    # print("\nPredicted Camera Poses:")
+    # print("Camera 1 (Reference):")
+    # print(pred_pose1)
+    # print("\nCamera 2:")
+    # print(pred_pose2)
     
     # Calculate predicted baseline from camera poses
     pred_t1 = pred_pose1[:3, 3]  # Translation vector of first camera
@@ -363,16 +362,6 @@ def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
     if isinstance(depth_gt, torch.Tensor):
         depth_gt = depth_gt.cpu().numpy()
 
-    # Debug prints for depth values
-    print("\nDebug depth values:")
-    print(f"Pred depth shape: {pred_depth.shape}, dtype: {pred_depth.dtype}")
-    print(f"Pred depth min: {np.min(pred_depth)}, max: {np.max(pred_depth)}")
-    print(f"Pred depth has NaN: {np.isnan(pred_depth).any()}")
-    print(f"Pred depth has inf: {np.isinf(pred_depth).any()}")
-    print(f"GT depth shape: {depth_gt.shape}, dtype: {depth_gt.dtype}")
-    print(f"GT depth min: {np.min(depth_gt)}, max: {np.max(depth_gt)}")
-    print(f"GT depth has NaN: {np.isnan(depth_gt).any()}")
-    print(f"GT depth has inf: {np.isinf(depth_gt).any()}")
 
     # Squeeze out channel dimension if it exists
     if depth_gt.ndim == 3 and depth_gt.shape[0] == 1:
@@ -390,7 +379,7 @@ def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
     axes[0, 0].set_title("Original Image")
     axes[0, 0].axis('off')
 
-    im = axes[0, 1].imshow(depth_diff, cmap='hot')
+    im = axes[0, 1].imshow(depth_diff, cmap='hot', vmin=0, vmax=0.5)
     axes[0, 1].set_title("Depth Difference (abs)")
     axes[0, 1].axis('off')
     fig.colorbar(im, ax=axes[0, 1])
@@ -398,10 +387,6 @@ def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
     # Determine shared color range for depth plots
     valid_pred_depth = pred_depth[np.isfinite(pred_depth)]
     valid_depth_gt = depth_gt[np.isfinite(depth_gt)]
-    
-    print(f"\nValid depth ranges:")
-    print(f"Valid pred depth min: {np.min(valid_pred_depth)}, max: {np.max(valid_pred_depth)}")
-    print(f"Valid GT depth min: {np.min(valid_depth_gt)}, max: {np.max(valid_depth_gt)}")
     
     vmin, vmax = None, None
     if valid_pred_depth.size > 0 and valid_depth_gt.size > 0:
@@ -417,7 +402,7 @@ def compare_and_visualize(img1, pred_depth, depth_gt, item_id, out_dir):
     axes[1, 0].axis('off')
     fig.colorbar(im, ax=axes[1, 0])
     
-    im = axes[1, 1].imshow(pred_depth, cmap='viridis')#, vmin=vmin, vmax=vmax)
+    im = axes[1, 1].imshow(pred_depth, cmap='viridis', vmin=vmin, vmax=vmax)
     axes[1, 1].set_title("Predicted Depth")
     axes[1, 1].axis('off')
     fig.colorbar(im, ax=axes[1, 1])
@@ -467,87 +452,97 @@ def main(args):
 
     def data_fn():
         df = pd.read_parquet(args.meta_data_path)
+        # Set random seed for reproducibility
+        np.random.seed(1)
+        random.seed(1)
+        torch.manual_seed(1)
         for i in range(len(df)):
             idx = np.random.randint(0, len(df))
             yield DepthData.from_row(df.iloc[idx])
 
     processed_count = 0
     for data in data_fn():
-        if args.limit_num is not None and processed_count >= args.limit_num:
-            break
+        try:
+            if args.limit_num is not None and processed_count >= args.limit_num:
+                break
+                
+            logging.info(f"Processing item {data.item_id}")
+            try:
+                img1, img2, intrinsics, depth_gt, gt_baseline, gt_pose1, gt_pose2 = deserialize_data(
+                    data, resource_manager, args)
+            except ValueError as e:
+                logging.warning(f"Skipping item {data.item_id} due to: {e}")
+                continue
+
+            pred_depth_low_res, inference_time, _, scene = run_dust3r_inference(
+                model, img1, img2, intrinsics, args, gt_pose1, gt_pose2)
             
-        logging.info(f"Processing item {data.item_id}")
-        try:
-            img1, img2, intrinsics, depth_gt, gt_baseline, gt_pose1, gt_pose2 = deserialize_data(
-                data, resource_manager, args)
-        except ValueError as e:
-            logging.warning(f"Skipping item {data.item_id} due to: {e}")
+            # Save 3D model as PLY
+            # print(f"Saving 3D model for item {data.item_id}...")
+            # try:
+            #     model_filename = f"{data.item_id}_model.ply"
+            #     model_output_path = get_3D_model_from_scene(
+            #         outdir=args.out_dir,
+            #         silent=False,
+            #         scene=scene,
+            #         glb_name=model_filename
+            #     )
+            #     if model_output_path:
+            #         print(f"Saved 3D model to {model_output_path}")
+            #     else:
+            #         print(f"Warning: Could not generate or save 3D model for item {data.item_id}.")
+            # except Exception as e:
+            #     print(f"Error saving 3D model for item {data.item_id}: {e}")
+            
+            # Resize predicted depth to match ground truth depth resolution
+            H, W = img1.shape[2:]
+            pred_depth_tensor = torch.from_numpy(pred_depth_low_res).unsqueeze(0).unsqueeze(0)
+            pred_depth_resized = torch.nn.functional.interpolate(pred_depth_tensor, size=(H, W), mode='bilinear', align_corners=False)
+            pred_depth = pred_depth_resized.squeeze().cpu().numpy()
+
+            print(f"Pred depth min: {pred_depth.min()}, max: {pred_depth.max()}, mean: {pred_depth.mean()}")
+            print(f"Pred depth shape: {pred_depth.shape}")
+            
+            # Record statistics
+            stats = {
+                'item_id': data.item_id,
+                'mean_error': np.mean(np.abs(pred_depth - depth_gt.cpu().numpy())),
+                'gt_min': depth_gt.min(),
+                'gt_max': depth_gt.max(),
+                'gt_mean': depth_gt.mean(),
+                'pred_min': pred_depth.min(),
+                'pred_max': pred_depth.max(),
+                'pred_mean': pred_depth.mean(),
+                'inference_time': inference_time
+            }
+            results_df = pd.concat([results_df, pd.DataFrame([stats])], ignore_index=True)
+            
+            print(f"\nDepth Statistics for item {data.item_id}:")
+            print(f"Ground Truth - min: {depth_gt.min():.3f}, max: {depth_gt.max():.3f}, mean: {depth_gt.mean():.3f}")
+            print(f"Predicted - min: {pred_depth.min():.3f}, max: {pred_depth.max():.3f}, mean: {pred_depth.mean():.3f}")
+            print(f"Mean absolute error: {stats['mean_error']:.3f}")
+            
+            if isinstance(pred_depth, torch.Tensor):
+                pred_depth = pred_depth.cpu().numpy()
+
+            compare_and_visualize(img1, pred_depth, depth_gt, data.item_id, args.out_dir)
+
+            logging.info(
+                f"Inference time: {inference_time:.4f}s, Predicted depth map shape: {pred_depth.shape}")
+            
+            processed_count += 1
+            
+            # Save results every 10 scenes
+            if processed_count % 10 == 0:
+                results_path = os.path.join(args.out_dir, 'depth_benchmark_results.csv')
+                results_df.to_csv(results_path, index=False)
+                logging.info(f"Saved results to {results_path}")
+        except Exception as err:
+            print(f"error handling {data.item_id}")
             continue
-
-        pred_depth_low_res, inference_time, _, scene = run_dust3r_inference(
-            model, img1, img2, intrinsics, args, gt_pose1, gt_pose2)
         
-        # Save 3D model as PLY
-        print(f"Saving 3D model for item {data.item_id}...")
-        try:
-            model_filename = f"{data.item_id}_model.ply"
-            model_output_path = get_3D_model_from_scene(
-                outdir=args.out_dir,
-                silent=False,
-                scene=scene,
-                glb_name=model_filename
-            )
-            if model_output_path:
-                print(f"Saved 3D model to {model_output_path}")
-            else:
-                print(f"Warning: Could not generate or save 3D model for item {data.item_id}.")
-        except Exception as e:
-            print(f"Error saving 3D model for item {data.item_id}: {e}")
         
-        # Resize predicted depth to match ground truth depth resolution
-        H, W = img1.shape[2:]
-        pred_depth_tensor = torch.from_numpy(pred_depth_low_res).unsqueeze(0).unsqueeze(0)
-        pred_depth_resized = torch.nn.functional.interpolate(pred_depth_tensor, size=(H, W), mode='bilinear', align_corners=False)
-        pred_depth = pred_depth_resized.squeeze().cpu().numpy()
-
-        print(f"Pred depth min: {pred_depth.min()}, max: {pred_depth.max()}, mean: {pred_depth.mean()}")
-        print(f"Pred depth shape: {pred_depth.shape}")
         
-        # Record statistics
-        stats = {
-            'item_id': data.item_id,
-            'mean_error': np.mean(np.abs(pred_depth - depth_gt.cpu().numpy())),
-            'gt_min': depth_gt.min(),
-            'gt_max': depth_gt.max(),
-            'gt_mean': depth_gt.mean(),
-            'pred_min': pred_depth.min(),
-            'pred_max': pred_depth.max(),
-            'pred_mean': pred_depth.mean(),
-            'inference_time': inference_time
-        }
-        results_df = pd.concat([results_df, pd.DataFrame([stats])], ignore_index=True)
-        
-        print(f"\nDepth Statistics for item {data.item_id}:")
-        print(f"Ground Truth - min: {depth_gt.min():.3f}, max: {depth_gt.max():.3f}, mean: {depth_gt.mean():.3f}")
-        print(f"Predicted - min: {pred_depth.min():.3f}, max: {pred_depth.max():.3f}, mean: {pred_depth.mean():.3f}")
-        print(f"Mean absolute error: {stats['mean_error']:.3f}")
-        
-        if isinstance(pred_depth, torch.Tensor):
-            pred_depth = pred_depth.cpu().numpy()
-
-        compare_and_visualize(img1, pred_depth, depth_gt, data.item_id, args.out_dir)
-
-        logging.info(
-            f"Inference time: {inference_time:.4f}s, Predicted depth map shape: {pred_depth.shape}")
-        
-        processed_count += 1
-        
-        # Save results every 10 scenes
-        if processed_count % 10 == 0:
-            results_path = os.path.join(args.out_dir, 'depth_benchmark_results.csv')
-            results_df.to_csv(results_path, index=False)
-            logging.info(f"Saved results to {results_path}")
-    
     # Save final results
     results_path = os.path.join(args.out_dir, 'depth_benchmark_results.csv')
     results_df.to_csv(results_path, index=False)
