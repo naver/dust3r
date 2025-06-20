@@ -39,9 +39,9 @@ from croco.utils.misc import NativeScalerWithGradNormCount as NativeScaler  # no
 def get_args_parser():
     parser = argparse.ArgumentParser('DUST3R training', add_help=False)
     # model and criterion
-    parser.add_argument('--model', default="AsymmetricCroCo3DStereo(patch_embed_cls='ManyAR_PatchEmbed')",
+    parser.add_argument('--model', default="AsymmetricCroCo3DStereo(pos_embed='RoPE100', img_size=(224, 224), head_type='linear', output_mode='pts3d', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), enc_embed_dim=1024, enc_depth=24, enc_num_heads=16, dec_embed_dim=768, dec_depth=12, dec_num_heads=12)",
                         type=str, help="string containing the model to build")
-    parser.add_argument('--pretrained', default=None, help='path of a starting checkpoint')
+    parser.add_argument('--pretrained', default="checkpoints/DUSt3R_ViTLarge_BaseDecoder_224_linear.pth", help='path of a starting checkpoint')
     parser.add_argument('--train_criterion', default="ConfLoss(Regr3D(L21, norm_mode='avg_dis'), alpha=0.2)",
                         type=str, help="train criterion")
     parser.add_argument('--test_criterion', default=None, type=str, help="test criterion")
@@ -52,19 +52,19 @@ def get_args_parser():
 
     # training
     parser.add_argument('--seed', default=0, type=int, help="Random seed")
-    parser.add_argument('--batch_size', default=64, type=int,
+    parser.add_argument('--batch_size', default=1, type=int,
                         help="Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus")
     parser.add_argument('--accum_iter', default=1, type=int,
                         help="Accumulate gradient iterations (for increasing the effective batch size under memory constraints)")
     parser.add_argument('--epochs', default=800, type=int, help="Maximum number of epochs for the scheduler")
 
     parser.add_argument('--weight_decay', type=float, default=0.05, help="weight decay (default: 0.05)")
-    parser.add_argument('--lr', type=float, default=None, metavar='LR', help='learning rate (absolute lr)')
+    parser.add_argument('--lr', type=float, default=0.00001, metavar='LR', help='learning rate (absolute lr)')
     parser.add_argument('--blr', type=float, default=1.5e-4, metavar='LR',
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-    parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
+    parser.add_argument('--min_lr', type=float, default=1e-06, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
-    parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N', help='epochs to warmup LR')
+    parser.add_argument('--warmup_epochs', type=int, default=1, metavar='N', help='epochs to warmup LR')
 
     parser.add_argument('--amp', type=int, default=0,
                         choices=[0, 1], help="Use Automatic Mixed Precision for pretraining")
@@ -137,7 +137,7 @@ def train(args):
 
     if args.pretrained and not args.resume:
         print('Loading pretrained: ', args.pretrained)
-        ckpt = torch.load(args.pretrained, map_location=device)
+        ckpt = torch.load(args.pretrained, map_location=device, weights_only=False)
         print(model.load_state_dict(ckpt['model'], strict=False))
         del ckpt  # in case it occupies memory
 
