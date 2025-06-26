@@ -23,10 +23,11 @@ except ImportError:
 ImgNorm = tvf.Compose([tvf.ToTensor(), tvf.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
-def img_to_arr( img ):
+def img_to_arr(img):
     if isinstance(img, str):
         img = imread_cv2(img)
     return img
+
 
 def imread_cv2(path, options=cv2.IMREAD_COLOR):
     """ Open an image or a depthmap with opencv-python.
@@ -70,7 +71,7 @@ def _resize_pil_image(img, long_edge_size):
     return img.resize(new_size, interp)
 
 
-def load_images(folder_or_list, size, square_ok=False, verbose=True):
+def load_images(folder_or_list, size, square_ok=False, verbose=True, patch_size=16):
     """ open and convert all images in a list or folder to proper input format for DUSt3R
     """
     if isinstance(folder_or_list, str):
@@ -109,7 +110,8 @@ def load_images(folder_or_list, size, square_ok=False, verbose=True):
             half = min(cx, cy)
             img = img.crop((cx-half, cy-half, cx+half, cy+half))
         else:
-            halfw, halfh = ((2*cx)//16)*8, ((2*cy)//16)*8
+            halfw = ((2 * cx) // patch_size) * patch_size / 2
+            halfh = ((2 * cy) // patch_size) * patch_size / 2
             if not (square_ok) and W == H:
                 halfh = 3*halfw/4
             img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
