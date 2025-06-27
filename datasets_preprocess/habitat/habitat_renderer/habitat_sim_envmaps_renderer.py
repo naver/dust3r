@@ -130,7 +130,7 @@ class HabitatEnvironmentMapRenderer:
                 # Try to compute a navmesh
                 navmesh_settings = habitat_sim.NavMeshSettings()
                 navmesh_settings.set_defaults()
-                self.sim.recompute_navmesh(self.sim.pathfinder, navmesh_settings, True)
+                self.sim.recompute_navmesh(self.sim.pathfinder, navmesh_settings)
 
             # Check that the navmesh is not empty
             if not self.sim.pathfinder.is_loaded:
