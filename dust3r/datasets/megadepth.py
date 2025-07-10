@@ -14,7 +14,7 @@ from dust3r.utils.image import imread_cv2
 
 
 class MegaDepth(BaseStereoViewDataset):
-    def __init__(self, *args, split, ROOT, **kwargs):
+    def __init__(self, *args, ROOT, **kwargs):
         self.ROOT = ROOT
         super().__init__(*args, **kwargs)
         self.loaded_data = self._load_data(self.split)
