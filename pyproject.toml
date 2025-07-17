@@ -1,0 +1,21 @@
+[project]
+name = "dust3r"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "einops>=0.8.1",
+    "gradio>=5.38.0",
+    "huggingface-hub[torch]>=0.22",
+    "matplotlib>=3.10.3",
+    "opencv-python>=4.12.0.88",
+    "pyglet<2",
+    "roma>=1.5.3",
+    "scipy>=1.16.0",
+    "tensorboard>=2.19.0",
+    "torch>=2.7.1",
+    "torchvision>=0.22.1",
+    "tqdm>=4.67.1",
+    "trimesh>=4.7.1",
+]
