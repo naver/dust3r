@@ -85,6 +85,7 @@ class AsymmetricCroCo3DStereo (
             return model
 
     def _set_patch_embed(self, img_size=224, patch_size=16, enc_embed_dim=768):
+        self.patch_size = patch_size
         self.patch_embed = get_patch_embed(self.patch_embed_cls, img_size, patch_size, enc_embed_dim)
 
     def load_state_dict(self, ckpt, **kw):

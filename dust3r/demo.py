@@ -139,7 +139,11 @@ def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist,
     from a list of images, run dust3r inference, global aligner.
     then run get_3D_model_from_scene
     """
-    imgs = load_images(filelist, size=image_size, verbose=not silent)
+    try:
+        square_ok = model.square_ok
+    except Exception as e:
+        square_ok = False
+    imgs = load_images(filelist, size=image_size, verbose=not silent, patch_size=model.patch_size, square_ok=square_ok)
     if len(imgs) == 1:
         imgs = [imgs[0], copy.deepcopy(imgs[0])]
         imgs[1]['idx'] = 1

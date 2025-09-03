@@ -36,9 +36,9 @@ class BaseStereoViewDataset (EasyDataset):
         self.split = split
         self._set_resolutions(resolution)
 
-        self.transform = transform
         if isinstance(transform, str):
             transform = eval(transform)
+        self.transform = transform
 
         self.aug_crop = aug_crop
         self.seed = seed

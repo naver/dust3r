@@ -28,8 +28,8 @@ import dust3r.utils.geometry as geometry
 
 inv = np.linalg.inv
 norm = np.linalg.norm
-REGEXPR_DSLR = re.compile(r'^DSC(?P<frameid>\d+).JPG$')
-REGEXPR_IPHONE = re.compile(r'frame_(?P<frameid>\d+).jpg$')
+REGEXPR_DSLR = re.compile(r'^.*DSC(?P<frameid>\d+).JPG$')
+REGEXPR_IPHONE = re.compile(r'.*frame_(?P<frameid>\d+).jpg$')
 
 DEBUG_VIZ = None  # 'iou'
 if DEBUG_VIZ is not None:
@@ -67,8 +67,12 @@ def get_frame_number(name, cam_type='dslr'):
         regex_expr = REGEXPR_IPHONE
     else:
         raise NotImplementedError(f'wrong {cam_type=} for get_frame_number')
-    matches = re.match(regex_expr, name)
-    return matches['frameid']
+    try:
+        matches = re.match(regex_expr, name)
+        return matches['frameid']
+    except Exception as e:
+        print(f'Error when parsing {name}')
+        raise ValueError(f'Invalid name {name}')
 
 
 def load_sfm(sfm_dir, cam_type='dslr'):
@@ -94,6 +98,10 @@ def load_sfm(sfm_dir, cam_type='dslr'):
 
         idx = image[0]
         img_name = image[-1]
+        prefixes = ['iphone/', 'video/']
+        for prefix in prefixes:
+            if img_name.startswith(prefix):
+                img_name = img_name[len(prefix):]
         assert img_name not in img_idx, 'duplicate db image: ' + img_name
         img_idx[img_name] = idx  # register image name
 
@@ -118,6 +126,8 @@ def load_sfm(sfm_dir, cam_type='dslr'):
         points3D[point_3d_idx] = tuple(map(float, point[1:4]))
         if len(point) > 8:
             for idx, point_2d_idx in zip(point[8::2], point[9::2]):
+                if idx not in observations:
+                    continue
                 observations[idx].append((point_3d_idx, int(point_2d_idx)))
 
     return img_idx, img_infos, points3D, observations
@@ -262,9 +272,8 @@ def process_scenes(root, pairsdir, output_dir, target_resolution):
         pyrender_scene = pyrender.Scene()
         pyrender_scene.add(mesh)
 
-        selection_list = selection.tolist()
-        selection_dslr = [imgname + '.JPG' for imgname in selection if imgname.startswith('DSC')]
-        selection_iphone = [imgname + '.jpg' for imgname in selection if imgname.startswith('frame_')]
+        selection_iphone = [imgname + '.jpg' for imgname in selection if 'frame_' in imgname]
+        selection_dslr = [imgname + '.JPG' for imgname in selection if not 'frame_' in imgname]
 
         # resize the image to a more manageable size and render depth
         skipped_idx_list = []
@@ -305,7 +314,7 @@ def process_scenes(root, pairsdir, output_dir, target_resolution):
                 camera = pyrender.camera.IntrinsicsCamera(fx, fy, cx, cy, znear=znear, zfar=zfar)
                 camera_node = pyrender_scene.add(camera, pose=img_infos_idx['cam_to_world'] @ OPENGL_TO_OPENCV)
 
-                depth = renderer.render(pyrender_scene, flags=pyrender.RenderFlags.DEPTH_ONLY)
+                _, depth = renderer.render(pyrender_scene, flags=pyrender.RenderFlags.SKIP_CULL_FACES)
                 pyrender_scene.remove_node(camera_node)  # dont forget to remove camera
 
                 depth = (depth * 1000).astype('uint16')
@@ -348,15 +357,15 @@ def process_scenes(root, pairsdir, output_dir, target_resolution):
 
         trajectories = []
         intrinsics = []
-        for imgname in filtered_selection_list:
-            if imgname.startswith('DSC'):
-                imgidx = img_idx_dslr[imgname + '.JPG']
-                img_infos_idx = img_infos_dslr[imgidx]
-            elif imgname.startswith('frame_'):
+        for imgname in selection:
+            if 'frame_' in imgname:
                 imgidx = img_idx_iphone[imgname + '.jpg']
                 img_infos_idx = img_infos_iphone[imgidx]
+            elif 'DSC' in imgname:
+                imgidx = img_idx_dslr[imgname + '.JPG']
+                img_infos_idx = img_infos_dslr[imgidx]
             else:
-                raise ValueError('invalid image name')
+                raise ValueError(f'invalid image name {imgname}')
 
             intrinsics.append(img_infos_idx['intrinsics'])
             trajectories.append(img_infos_idx['cam_to_world'])
