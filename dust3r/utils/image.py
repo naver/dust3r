@@ -12,6 +12,10 @@ from PIL.ImageOps import exif_transpose
 import torchvision.transforms as tvf
 os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 import cv2  # noqa
+from io import BytesIO
+from typing import Dict, List
+import logging
+
 
 try:
     from pillow_heif import register_heif_opener  # noqa
@@ -123,6 +127,63 @@ def load_images(folder_or_list, size, square_ok=False, verbose=True, patch_size=
             [img.size[::-1]]), idx=len(imgs), instance=str(len(imgs))))
 
     assert imgs, 'no images foud at '+root
+    if verbose:
+        print(f' (Found {len(imgs)} images)')
+    return imgs
+
+
+def load_images_from_bytes(fetched_tiles: Dict[str, bytes], size: int, square_ok: bool = False, verbose: bool = True, patch_size: int = 16):
+    """
+    Load and convert images directly from memory (bytes) to the DUST3R input format.
+    This bypasses slow disk I/O.
+    """
+    if verbose:
+        print(f'>> Loading a list of {len(fetched_tiles)} images directly from memory.')
+    
+    # We don't need to check extensions or os.listdir/os.path.join
+    imgs = []
+    
+    # Iterate through the dictionary of fetched bytes
+    for path, data_bytes in fetched_tiles.items():
+        try:
+            # 1. CRITICAL: Use BytesIO to wrap the image data bytes
+            # This creates an in-memory, file-like object that PIL.Image.open can read.
+            img = exif_transpose(PIL.Image.open(BytesIO(data_bytes))).convert('RGB')
+            
+            # --- The original image processing logic remains unchanged ---
+            W1, H1 = img.size
+            if size == 224:
+                # resize short side to 224 (then crop)
+                img = _resize_pil_image(img, round(size * max(W1/H1, H1/W1)))
+            else:
+                # resize long side to 512
+                img = _resize_pil_image(img, size)
+                
+            W, H = img.size
+            cx, cy = W//2, H//2
+            if size == 224:
+                half = min(cx, cy)
+                img = img.crop((cx-half, cy-half, cx+half, cy+half))
+            else:
+                halfw = ((2 * cx) // patch_size) * patch_size / 2
+                halfh = ((2 * cy) // patch_size) * patch_size / 2
+                if not (square_ok) and W == H:
+                    halfh = 3*halfw/4
+                img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
+
+            W2, H2 = img.size
+            if verbose:
+                print(f' - adding {path} with resolution {W1}x{H1} --> {W2}x{H2}')
+            
+            # Add to the results list
+            imgs.append(dict(img=ImgNorm(img)[None], true_shape=np.int32(
+                [img.size[::-1]]), idx=len(imgs), instance=str(len(imgs))))
+
+        except Exception as e:
+            logging.error(f'Skipping tile {path}: Failed to load image from bytes. Error: {e}')
+            continue # Skip to the next tile
+
+    assert imgs, 'no images loaded successfully'
     if verbose:
         print(f' (Found {len(imgs)} images)')
     return imgs
