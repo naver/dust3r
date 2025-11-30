@@ -210,7 +210,7 @@ def set_scenegraph_options(inputfiles, winsize, refid, scenegraph_type):
 def main_demo(tmpdirname, model, device, image_size, server_name, server_port, silent=False):
     recon_fun = functools.partial(get_reconstructed_scene, tmpdirname, model, device, silent, image_size)
     model_from_scene_fun = functools.partial(get_3D_model_from_scene, tmpdirname, silent)
-    with gradio.Blocks(css=""".gradio-container {margin: 0 !important; min-width: 100%};""", title="DUSt3R Demo") as demo:
+    with gradio.Blocks(title="DUSt3R Demo") as demo:
         # scene state is save so that you can change conf_thr, cam_size... without rerunning the inference
         scene = gradio.State(None)
         gradio.HTML('<h2 style="text-align: center;">DUSt3R Demo</h2>')
@@ -284,4 +284,4 @@ def main_demo(tmpdirname, model, device, image_size, server_name, server_port, s
                                     inputs=[scene, min_conf_thr, as_pointcloud, mask_sky,
                                             clean_depth, transparent_cams, cam_size],
                                     outputs=outmodel)
-    demo.launch(share=False, server_name=server_name, server_port=server_port)
+    demo.launch(share=False, server_name=server_name, server_port=server_port, css=""".gradio-container {margin: 0 !important; min-width: 100%};""")
