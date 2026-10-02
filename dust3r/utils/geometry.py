@@ -60,7 +60,8 @@ def geotrf(Trf, pts, ncol=None, norm=False):
 
     # optimized code
     if (isinstance(Trf, torch.Tensor) and isinstance(pts, torch.Tensor) and
-            Trf.ndim == 3 and pts.ndim == 4):
+            Trf.ndim == 3 and pts.ndim == 4 and
+            not (norm and Trf.shape[-2] == pts.shape[-1] + 1)):
         d = pts.shape[3]
         if Trf.shape[-1] == d:
             pts = torch.einsum("bij, bhwj -> bhwi", Trf, pts)
