@@ -71,13 +71,13 @@ ALL_DISTS = dict(l1=l1_dist, l2=l2_dist)
 
 
 def signed_log1p(x):
-    sign = torch.sign(x)
-    return sign * torch.log1p(torch.abs(x))
+    sign = torch.where(x >= 0, 1, -1)
+    return sign * torch.log1p(sign * x)
 
 
 def signed_expm1(x):
-    sign = torch.sign(x)
-    return sign * torch.expm1(torch.abs(x))
+    sign = torch.where(x >= 0, 1, -1)
+    return sign * torch.expm1(sign * x)
 
 
 def cosine_schedule(t, lr_start, lr_end):
