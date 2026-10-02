@@ -73,13 +73,10 @@ def geotrf(Trf, pts, ncol=None, norm=False):
             n = Trf.ndim - 2
             assert Trf.shape[:n] == pts.shape[:n], 'batch size does not match'
             Trf = Trf.reshape(-1, Trf.shape[-2], Trf.shape[-1])
-
-            if pts.ndim > Trf.ndim:
-                # Trf == (B,d,d) & pts == (B,H,W,d) --> (B, H*W, d)
-                pts = pts.reshape(Trf.shape[0], -1, pts.shape[-1])
-            elif pts.ndim == 2:
-                # Trf == (B,d,d) & pts == (B,d) --> (B, 1, d)
-                pts = pts[:, None, :]
+            # Collapse the same batch axes in points, including one point per
+            # transform. Explicitly count points so empty batches also work.
+            num_points = int(np.prod(pts.shape[n:-1]))
+            pts = pts.reshape(Trf.shape[0], num_points, pts.shape[-1])
 
         if pts.shape[-1] + 1 == Trf.shape[-1]:
             Trf = Trf.swapaxes(-1, -2)  # transpose Trf
