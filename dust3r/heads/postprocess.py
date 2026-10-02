@@ -35,13 +35,16 @@ def reg_dense_depth(xyz, mode):
 
     # distance to origin
     d = xyz.norm(dim=-1, keepdim=True)
-    xyz = xyz / d.clip(min=1e-8)
+    if mode == 'exp':
+        # expm1(d) / d has the removable limit 1 at the origin.
+        nonzero = d > 0
+        safe_d = torch.where(nonzero, d, torch.ones_like(d))
+        scale = torch.where(nonzero, torch.expm1(d) / safe_d, torch.ones_like(d))
+        return xyz * scale
 
+    xyz = xyz / d.clip(min=1e-8)
     if mode == 'square':
         return xyz * d.square()
-
-    if mode == 'exp':
-        return xyz * torch.expm1(d)
 
     raise ValueError(f'bad {mode=}')
 
