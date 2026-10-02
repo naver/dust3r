@@ -257,6 +257,12 @@ def normalize_pointcloud(pts1, pts2, norm_mode='avg_dis', valid1=None, valid2=No
         # gather all points together (joint normalization)
         nan_pts1, nnz1 = invalid_to_zeros(pts1, valid1, ndim=3)
         nan_pts2, nnz2 = invalid_to_zeros(pts2, valid2, ndim=3) if pts2 is not None else (None, 0)
+        # The unmasked helper counts scalar coordinates; normalization averages
+        # distances per point, matching the count supplied by a spatial mask.
+        if valid1 is None:
+            nnz1 = nan_pts1.shape[1]
+        if pts2 is not None and valid2 is None:
+            nnz2 = nan_pts2.shape[1]
         all_pts = torch.cat((nan_pts1, nan_pts2), dim=1) if pts2 is not None else nan_pts1
 
         # compute distance to origin
