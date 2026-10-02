@@ -305,7 +305,7 @@ def normalize_pointcloud(pts1, pts2, norm_mode='avg_dis', valid1=None, valid2=No
     if pts2 is not None:
         res = (res, pts2 / norm_factor)
     if ret_factor:
-        res = res + (norm_factor,)
+        res = (res, norm_factor) if pts2 is None else res + (norm_factor,)
     return res
 
 
